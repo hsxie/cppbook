@@ -1,0 +1,48 @@
+PPLU (Plasma Physics Learning Utility) is developed to help beginners to learn and understand the forth state of matter (plasma) more easily and interested. Of course, non-beginners may also benifit from this utility.
+
+Run the utility,
+Method 1: open main_pplu.m in matlab editor, press the 'Run(>)' button or 'F5' directly;
+Method 2: type 'main_pplu' in the command window and 'Enter' is also OK.
+
+This utility is mainly developed by Hua-sheng XIE at Institute for Fusion Theory and Simulation, Department of Physics, Zhejiang University, Hangzhou, China. But, other people's public nice codes are also integrated.
+
+For examples,
+1. N. Lehtinen's plotcma.m for plotting the Clemmow-Mullaly-Allis diagram for cold 2-comp plasma.
+2. Anders Tjulin (2003)'s codes for plotting cold plasma wave dispersion surface.
+3. Andris Vaivads's  irf_plasma_wave_visualization.m for visualizing cold plasma waves.
+
+Thanks to these original authors.
+
+At this moment, this 1.1 version contents 13 completed (but may be intensified) moudles:
+
+1. Plot the tokamak cross section shape;
+2. Plot the B field line in tokamak;
+3. Plot the Clemmow-Mullaly-Allis diagram for cold 2-comp plasma;
+4. Calculate cold plasma wave dispersion relation & dispersion surface based on D(w,k);
+5. Visualize cold plasma waves;
+6. Charged particle motion in simple EM field;
+7. Particle-in-Cell Simulation, ES1D;
+8. The plasma dispersion function Z(z), and the dispersion relation of Langmuir wave (Landau problem);
+9. Example of Nyquist diagram;
+10. Simple model for adiabatic invariant.
+11. Solve the KdV equation for soliton(s) solution;
+12. Standard Map;
+13. Model for Phase Mixing, Resonantly-Absorbed, Mode-Converted.
+
+and, more moudles are planning.
+
+Comments and suggestions are welcome.
+
+Hua-sheng XIE, IFTS-ZJU, huashengxie@{gmail.com, 126.com, zju.edu.cn}, 2011-07-04 14:56.
+
+Note: You'd better have some basic knowledges of the module(s) which you are interested, or have a textbook in hand for referring.
+
+PS:
+Andre Jaun (KTH/Stockholm) and Anders Bondeson (CTH/Gothenburg) once have also developed a "MATLAB modules for introductory plasma physics", http://www.lifelong-learners.com/pla/com/. It can be a compared utility, for ones who are interested.
+
+
+History:
+PPLU1.0, 2011-06-27 08:44.
+PPLU1.1, 2011-07-04 14:56.
+
+Url: http://ifts.zju.edu.cn/forum/viewtopic.php?f=18&t=461 (If can not understand Chinese language, just ignore them.)

@@ -1,0 +1,31 @@
+Cite: 
+[Xie2013] H. S. Xie, Generalized plasma dispersion function: One-solve-all treatment, visualizations, and application to Landau damping, Physics of Plasmas, 2013, 20, 092125, http://scitation.aip.org/content/aip/journal/pop/20/9/10.1063/1.4822332
+
+% Hua-sheng XIE, huashengxie@gmail.com, IFTS-ZJU, 2013-05-26 23:37
+% Calculate GPDF, Generalized Plasma Dispersion Function, see [Xie2013]
+% Modify the parameters in the code for your own usage
+
+Abstract
+A unified, fast, and effective approach is developed for numerical
+calculation of the well-known plasma dispersion function with
+extensions from Maxwellian distribution to almost arbitrary
+distribution functions, such as the $\delta$, flat top, triangular,
+$\kappa$ or Lorentzian, slowing down, and incomplete Maxwellian
+distributions. The singularity and analytic continuation problems
+are also solved generally. Given that the usual conclusion
+$\gamma\propto\partial f_0/\partial v$ is only a rough approximation
+when discussing the distribution function effects on Landau damping,
+this approach provides a useful tool for rigorous calculations of
+the linear wave and instability properties of plasma for general
+distribution functions. The results are also verified via a linear
+initial value simulation approach. Intuitive visualizations of the
+generalized plasma dispersion function are also provided.
+
+Download: See supplementary material at http://dx.doi.org/10.1063/1.4822332 E-PHPAEN-20-024310 for the MATLAB version numerical routines, where GPDF, root finding, IVP simulation and test plotting codes are included. [ Supplementary Material]
+ftp://ftp.aip.org/epaps/phys_plasmas/E-PHPAEN-20-024310
+
+Also: http://arxiv.org/abs/1305.6476, http://arxiv.org/abs/1211.5984, http://arxiv.org/abs/1304.5883
+
+
+Hua-sheng XIE (huashengxie@gmail.com, IFTS-ZJU)
+14:22 2015/3/5

@@ -1,0 +1,48 @@
+Cite: 
+[Xie2016] H. S. Xie & Y. Xiao, PDRK: A General Kinetic Dispersion Relation Solver for Magnetized Plasma, Plasma Science and Technology, 18, 97 (2016). (also: http://arxiv.org/abs/1410.2678)
+
+% Hua-sheng XIE, huashengxie@gmail.com, IFTS-ZJU, 2014-06-01 17:00
+% pdrk_em3d.m, Plasma Dispersion Relastion solver, kinetic, EM3D,
+% bi-Maxwellian equilibrium distribution with parallel drift.
+% Transform to matrix eigenvalue problem lambda*X=M*X.
+% J-pole approximation for Z(zeta)=sum(b_j/(zeta-c_j))
+% 
+% sparse, eigs
+
+Abstract
+A general, fast, and effective approach is developed for numerical calculation of kinetic plasma dispersion relations. The plasma dispersion function is approximated by J-pole expansion. Subsequently, the dispersion relation is transformed to a standard matrix eigenvalue problem of an equivalent linear system. The result is accurate for J = 8 except the solutions that are the little interesting heavily damped modes. In contrast to conventional approaches, such as Newton¡¯s iterative method, this approach can give either all the solutions in the system or a few solutions around the initial guess. It is also free from convergent problems. The approach is demonstrated from electrostatic one-dimensional and three-dimensional dispersion relations, to electromagnetic kinetic magnetized plasma dispersion relation for bi-Maxwellian distribution with parallel velocity drift.
+
+Download: https://github.com/hsxie/pdrk
+
+Also: http://arxiv.org/abs/1410.2678, http://arxiv.org/abs/1304.5885
+
+
+==============================================
+From: Hua-sheng XIE [huashengxie@gmail.com]
+Sent: Sunday, October 12, 2014 7:37 PM
+Subject: FYI: PDRK - General Kinetic Dispersion Relation Solver
+
+Dear, Boys/Girls/Sir/Madam,
+
+    I send this to you in case you are interested in it (if not, just ignore it). The manuscript and source code can be found on arXiv (http://arxiv.org/abs/1410.2678). See 'Other formats<http://arxiv.org/format/1410.2678v1> ' for the source code: [ Download source<http://arxiv.org/e-print/1410.2678v1> ] , and rename it to '*.tar' and then decompress it.
+
+    This is a successor of the general multi-fluid solver PDRF (arXiv:1305.1205<http://arxiv.org/abs/1305.1205> or Computer Physics Communications, 2014, 185, 670 - 675). The basic idea of them was mentioned in arXiv:1304.5885<http://arxiv.org/abs/1304.5885> .
+
+    PDRK includes all the basic kinetic effects (Landau damping, FLR and so  on) and can be accurate for the benchmark of PIC or Vlasov solvers. So, I think it would be more useful than PDRF.
+
+    Further comments and suggestions are welcome. Thanks.
+
+Best,
+Hua-sheng XIE
+==============================================
+
+
+Hua-sheng XIE (huashengxie@gmail.com, IFTS-ZJU)
+14:06 2015/3/5
+
+
+
+
+http://hsxie.me/codes/pdrk/
+
+17:13 2016/2/17

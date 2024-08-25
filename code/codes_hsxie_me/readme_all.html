@@ -1,0 +1,203 @@
+<font size="2">
+<ol type="I">
+Readme of available codes (<a href="http://hsxie.me/codes/">http://hsxie.me/codes/</a>) by Hua-sheng XIE:<br><br>
+<li>amc</li><br>
+
+AMC (Alfven Mode Code) is an eigenvalue code mainly (but not limited) aimed to study the Alfven physics (continuum spectrums and eigenmodes) in tokamak.
+<br><br>
+Cite: <br>
+[Xie2015] H.S. Xie & Y. Xiao, Parallel equilibrium current effect on existence of reversed shear Alfven eigenmodes, Phys. Plasmas, 22, 022518 (2015). http://scitation.aip.org/content/aip/journal/pop/22/2/10.1063/1.4913487
+<br><br>
+
+AMC has been used in [Chen2014a] W. Chen et al, EPL 107, 25001 (2014).
+<br><br>
+----
+<br><br>
+Also 'awcon', which calculates only the continuums, and can also calculates acoustic coupling.
+<br><br>
+Awcon has been used in [Chen2014b] W. Chen et al, Nucl. Fusion 54, 104002 (2014).
+<br><br><br>
+
+Hua-sheng XIE (IFTS-ZJU, huashengxie@gmail.com)<br>
+20:56 2015/3/4
+<br><br>
+
+===========================================================<br>
+Also<br><br>
+
+1. GFLDR<br>
+Numerical Solving of General Fishbone-Like Dispersion Relation in the Accumulating Point<br><br>
+
+This code is used and updated in [Ma2014].<br><br>
+
+cite:<br>
+[Ma2014] Ruirui Ma, Ilija Chavdarovski, Gaoxiang Ye, and Xin Wang, Linear dispersion relation of beta-induced Alfv¨¦n eigenmodes in presence of anisotropic energetic ions, Physics of Plasmas 21, 062120 (2014).
+<br><br>
+
+2. tearing<br><br>
+
+Linear (both intial value and eigenvalue solvers) tearing mode solution in 2D reduced MHD equation<br>
+a. Slab 2D<br>
+b. Cylinder<br><br>
+
+The cylinder version has been used with update in [Liu2015].<br>
+
+Cite:<br>
+[Liu2015] Dongjian Liu, Wenlu Zhang, Joseph McClenaghan, Jiaqi Wang, and Zhihong Lin, Verification of gyrokinetic particle simulation of current-driven instability in fusion plasmas. II. Resistive tearing mode, Physics of Plasmas 21, 122520 (2014).
+<br><br>
+
+20:58 2015/3/20<br><br>
+
+<br><br>
+<li>gpdf</li><br>
+
+Cite: <br>
+[Xie2013] H. S. Xie, Generalized plasma dispersion function: One-solve-all treatment, visualizations, and application to Landau damping, Physics of Plasmas, 2013, 20, 092125, http://scitation.aip.org/content/aip/journal/pop/20/9/10.1063/1.4822332<br><br>
+
+% Hua-sheng XIE, huashengxie@gmail.com, IFTS-ZJU, 2013-05-26 23:37<br>
+% Calculate GPDF, Generalized Plasma Dispersion Function, see [Xie2013]<br>
+% Modify the parameters in the code for your own usage<br><br>
+
+Abstract<br>
+A unified, fast, and effective approach is developed for numerical
+calculation of the well-known plasma dispersion function with
+extensions from Maxwellian distribution to almost arbitrary
+distribution functions, such as the $\delta$, flat top, triangular,
+$\kappa$ or Lorentzian, slowing down, and incomplete Maxwellian
+distributions. The singularity and analytic continuation problems
+are also solved generally. Given that the usual conclusion
+$\gamma\propto\partial f_0/\partial v$ is only a rough approximation
+when discussing the distribution function effects on Landau damping,
+this approach provides a useful tool for rigorous calculations of
+the linear wave and instability properties of plasma for general
+distribution functions. The results are also verified via a linear
+initial value simulation approach. Intuitive visualizations of the
+generalized plasma dispersion function are also provided.<br><br>
+
+Download: See supplementary material at http://dx.doi.org/10.1063/1.4822332 E-PHPAEN-20-024310 for the MATLAB version numerical routines, where GPDF, root finding, IVP simulation and test plotting codes are included. [ Supplementary Material]
+ftp://ftp.aip.org/epaps/phys_plasmas/E-PHPAEN-20-024310<br><br>
+
+Also: http://arxiv.org/abs/1305.6476, http://arxiv.org/abs/1211.5984, http://arxiv.org/abs/1304.5883<br><br>
+
+
+Hua-sheng XIE (huashengxie@gmail.com, IFTS-ZJU)<br>
+14:22 2015/3/5<br><br>
+
+<br><br>
+<li>landaudamping</li><br>
+Landau Damping Simulation Models<br>
+Hua-sheng Xie, IFTS-ZJU, huashengxie@gmail.com<br><br>
+
+Abstract:<br>
+Several models for Landau damping simulations are provided: the simplest linear model, particle-in-cell (PIC) simulation and Vlasov continuity simulation as well as the discussions of the numerical aspects of the dispersion relation.<br><br>
+
+I hope this tutorial can be useful for beginners to understand the basic physics and numerical methods in plasma physics. It can be used for the undergraduate or graduate courses such as "Introduction to Plasma Physics" or "Computational Plasma Physics". And, it can also be the start point of your researches.<br><br>
+
+This version of the tutorial (notes and codes) was presented at Sichuan University, Chengdu, China.<br><br>
+
+You can modified/improved them for your own usages. But, you should keep the copyright information. This statement also holds for many of my other codes.<br><br>
+
+xiehuasheng<br>
+2013-10-15 14:48
+
+<br><br>
+
+<br><br>
+<li>orbitm</li><br>
+1. orbit_general<br>
+Orbit.m, single particle motion for: space plasma (current sheet, dipole, ...), Tokamak, Laser, ...<br><br>
+
+A short code, but can treat almost all the common particle motion problems in different EM fields.<br><br>
+
+2. tokamak<br>
+Orbit_tokamak: Using Lorentz force, with gyro. Rewritten from "Orbit.m".<br>
+OrbitGC_qfix: Guiding center orbit with q=const.<br>
+OrbitGC_qpsip: Guiding center orbit with q=q1+q2*psip+q3*psip^2.<br>
+See "OrbitTokamak_doc.doc" for related formula.<br><br>
+
+Hua-sheng XIE (huashengxie@gmail.com)<br>
+10:32 2012-12-28<br><br>
+
+<br><br>
+<li>pdrf</li><br>
+
+Cite: <br>
+[Xie2014] H. S. Xie, PDRF: A general dispersion relation solver for magnetized multi-fluid plasma, Computer Physics Communications, 2014, 185, 670 - 675, http://www.sciencedirect.com/science/article/pii/S0010465513003408.<br><br>
+
+% Hua-sheng XIE, huashengxie@gmail.com, IFTS-ZJU, 2013-05-03 22:02<br>
+% pdrf.m (Plasma Dispersion Relation - Fluid version), general dispersion<br>
+% relation solver for multi-fluid plasma, ver 1.0. Full-matrix method.<br><br>
+
+Abstract<br>
+A general dispersion-relation solver that numerically evaluates the full propagation properties of all the waves in fluid plasmas is presented. The effects of anisotropic pressure, external magnetic fields and beams, relativistic dynamics, as well as local plasma inhomogeneity are included.<br><br>
+
+Download: http://cpc.cs.qub.ac.uk/summaries/AERF_v1_0.html<br><br>
+
+Also: http://arxiv.org/abs/1305.1205, http://arxiv.org/abs/1304.5885<br><br>
+
+
+Hua-sheng XIE (huashengxie@gmail.com, IFTS-ZJU)<br>
+14:00 2015/3/5<br><br>
+<br><br>
+<li>pdrk</li><br>
+
+Cite: <br>
+[Xie2016] H. S. Xie & Y. Xiao, PDRK: A General Kinetic Dispersion Relation Solver for Magnetized Plasma, Plasma Science and Technology, 18, 97 (2016). (also: http://arxiv.org/abs/1410.2678)<br><br>
+
+% Hua-sheng XIE, huashengxie@gmail.com, IFTS-ZJU, 2014-06-01 17:00<br>
+% pdrk_em3d.m, Plasma Dispersion Relastion solver, kinetic, EM3D,<br>
+% bi-Maxwellian equilibrium distribution with parallel drift.<br>
+% Transform to matrix eigenvalue problem lambda*X=M*X.<br>
+% J-pole approximation for Z(zeta)=sum(b_j/(zeta-c_j))<br>
+% <br>
+% sparse, eigs<br><br>
+
+Abstract<br>
+A general, fast, and effective approach is developed for numerical calculation of kinetic plasma dispersion relations. The plasma dispersion function is approximated by J-pole expansion. Subsequently, the dispersion relation is transformed to a standard matrix eigenvalue problem of an equivalent linear system. The result is accurate for J = 8 except the solutions that are the little interesting heavily damped modes. In contrast to conventional approaches, such as Newton¡¯s iterative method, this approach can give either all the solutions in the system or a few solutions around the initial guess. It is also free from convergent problems. The approach is demonstrated from electrostatic one-dimensional and three-dimensional dispersion relations, to electromagnetic kinetic magnetized plasma dispersion relation for bi-Maxwellian distribution with parallel velocity drift.<br><br>
+
+Download: https://github.com/hsxie/pdrk<br><br>
+
+Also: http://arxiv.org/abs/1410.2678, http://arxiv.org/abs/1304.5885<br><br>
+
+
+==============================================<br>
+From: Hua-sheng XIE [huashengxie@gmail.com]<br>
+Sent: Sunday, October 12, 2014 7:37 PM<br>
+Subject: FYI: PDRK - General Kinetic Dispersion Relation Solver<br><br>
+
+Dear, Boys/Girls/Sir/Madam,<br><br>
+
+    I send this to you in case you are interested in it (if not, just ignore it). The manuscript and source code can be found on arXiv (http://arxiv.org/abs/1410.2678). See 'Other formats<http://arxiv.org/format/1410.2678v1> ' for the source code: [ Download source<http://arxiv.org/e-print/1410.2678v1> ] , and rename it to '*.tar' and then decompress it.<br><br>
+
+    This is a successor of the general multi-fluid solver PDRF (arXiv:1305.1205<http://arxiv.org/abs/1305.1205> or Computer Physics Communications, 2014, 185, 670 - 675). The basic idea of them was mentioned in arXiv:1304.5885<http://arxiv.org/abs/1304.5885> .<br><br>
+
+    PDRK includes all the basic kinetic effects (Landau damping, FLR and so  on) and can be accurate for the benchmark of PIC or Vlasov solvers. So, I think it would be more useful than PDRF.<br><br>
+
+    Further comments and suggestions are welcome. Thanks.<br><br>
+
+Best,<br><br>
+Hua-sheng XIE<br>
+==============================================<br><br>
+
+
+Hua-sheng XIE (huashengxie@gmail.com, IFTS-ZJU)<br>
+14:06 2015/3/5<br><br>
+
+<br><br>
+<li>pplu</li><br>
+PPLU (Plasma Physics Learning Utility) is developed to help beginners to learn and understand the forth state of matter (plasma) more easily and interested with several modules. However, I may not update it anymore.<br><br>
+
+<br><br>
+<li>shafeq</li><br>
+'Shafeq' is written for GTC to include shifted circular tokamak equilibrium. However, you can modify it for other useages following the document 'shafeq.pdf'.
+<br><br>
+I haven't tested the part 'Reading data from TRANSP'. If you need this capability, you should check it yourself.<br><br>
+
+
+Hua-sheng XIE (IFTS-ZJU, huashengxie@gmail.com)<br>
+21:54 2015/3/23<br><br><br><br>
+
+<a href="./">List all codes</a><br><br>
+<a href="../downloads.html">Old download page</a>
+</ol>
+</font>

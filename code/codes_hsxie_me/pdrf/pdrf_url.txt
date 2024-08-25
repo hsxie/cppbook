@@ -1,0 +1,31 @@
+Cite: 
+[Xie2014] H. S. Xie, PDRF: A general dispersion relation solver for magnetized multi-fluid plasma, Computer Physics Communications, 2014, 185, 670 - 675, http://www.sciencedirect.com/science/article/pii/S0010465513003408.
+
+% Hua-sheng XIE, huashengxie@gmail.com, IFTS-ZJU, 2013-05-03 22:02
+% pdrf.m (Plasma Dispersion Relation - Fluid version), general dispersion
+% relation solver for multi-fluid plasma, ver 1.0. Full-matrix method.
+
+Abstract
+A general dispersion-relation solver that numerically evaluates the full propagation properties of all the waves in fluid plasmas is presented. The effects of anisotropic pressure, external magnetic fields and beams, relativistic dynamics, as well as local plasma inhomogeneity are included.
+
+Download: http://cpc.cs.qub.ac.uk/summaries/AERF_v1_0.html
+
+Also: http://arxiv.org/abs/1305.1205, http://arxiv.org/abs/1304.5885
+
+
+Hua-sheng XIE (huashengxie@gmail.com, IFTS-ZJU)
+14:00 2015/3/5
+
+
+
+---------------------------------------------------------------------------------
+Homepage of pdrf code: http://hsxie.me/codes/pdrf/
+
+2016-04-14 18:56 Ver 1.1, fix bugs for:
+       1. roundoff error of eig(), using vpa() sym format
+       2. P\neq0 term, corresponding matrix elements rho_s0 -> n_s0
+Ackn.: Nicholas Francken and Yana Maneva at the KU Leuven in Belgium
+       for the benchmarks report, which is helpful to fix these two bugs.
+
+Hua-sheng XIE (huashengxie@gmail.com, FSC-PKU)
+20:09 2016/4/14
