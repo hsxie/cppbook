@@ -1,0 +1,16 @@
+close all;clear;clc;
+x=0:0.4*pi:2*pi; y=sin(x);
+xi=0:0.05*pi:2*pi; yi=sin(xi);
+yi1=interp1(x,y,xi,'nearest');
+yi2=interp1(x,y,xi,'linear');
+yi3=interp1(x,y,xi,'cubic');
+yi4=interp1(x,y,xi,'spline');
+figure; set (gcf,'DefaultAxesFontSize',15);
+subplot(221);plot(xi,yi,xi,yi1,'r.','LineWidth',2);
+title('nearest');axis tight;
+subplot(222);plot(xi,yi,xi,yi2,'r.','LineWidth',2);
+title('linear');axis tight;
+subplot(223);plot(xi,yi,xi,yi3,'r.','LineWidth',2);
+title('cubic');axis tight;
+subplot(224);plot(xi,yi,xi,yi4,'r.','LineWidth',2);
+title('spline');axis tight;

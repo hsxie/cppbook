@@ -1,0 +1,10 @@
+r=0:0.01:1;
+[XX,YY]=meshgrid(-1:0.01:1);
+[Q,R]=cart2pol(XX,YY);
+R(find(R>1))=NaN;
+y1=inline('besselj(1,x)','x');
+y2=inline('besselj(2,x)','x');
+x1=fzero(y1,3);
+x2=fzero(y2,3);
+subplot(121);pcolor(XX,YY,y1(x1*R).*sin(Q));shading interp;
+subplot(122);pcolor(XX,YY,y2(x2*R).*sin(Q));shading interp;
