@@ -1,0 +1,65 @@
+!***********************************************************************************
+!*  A Vlasov-Poisson/Vlasov-Ampere Solver, also for BB (Berk-Breizman) model.      *
+!*          With and Without Krook Collison, Diffusion and Drag                    *
+!*                vlasov_bbmodel.f90, 2011-08-26 07:15                             *
+!*        Hua-sheng XIE, IFTS-ZJU, huashengxie@{gmail.com, zju.edu.cn}             *
+!***********************************************************************************
+
+vlasov_bbmodel_log.txt, 2011-08-29 14:00
+
+2011-08-26
+	07:15 Start to code.
+	
+		  moudle 'variable'; program 'main'; subroutine 'initial', 'plotf', 'plotef',
+		  'history', 'efield', 'outputpara', 'efield0', 'efield1', 'efield2', 
+		  'efieldcorr'; function 'num2str'.
+		  
+		  Vlasov solver is Fij99's. Divided to 'shitfx', 'shiftv', 'preps', 'prepe'.
+		  
+		  Haven't checked.
+		  
+		  Matlab code 'plot_efx.m', 'plot_fxv.m'(need 'writegif.m') and 'plot_diag.m'
+		  for data processing.
+		  
+2011-08-27
+	07:23 Total lines: 649(with comments).
+	
+2011-08-28
+	21:23 Vlasov and field solvers are checked. 'efield0' (Fijalkow1999), 'efield1'
+		  (Direct difference), and 'efield3(tridiag) give all most the same results.
+	      
+		  'efield2' (use Ampere's Law) can run, but seems not correct.
+		  
+		  Benckmark Landau damping and bump-on-tail. Figures are nice. But the exact
+		  damping or growth rate are not consist with linear theory. (Normalization 
+		  problem??)
+		  
+2011-08-29
+	12:40 Add 'upwindscheme' to solve 'shiftx' of Vlasov. Performance not good: 1st-
+		  order, diffusive; 2nd& 3rd, dispersive and errors (caused by boundary
+		  condition ??). Tested by 'test_upwind.f90'. Give reasonable results only
+		  when dt is small enough (CFL<<1.0).
+		  
+		  Total lines: 891(with comments).
+		  
+Need to do:
+	1. Find why the Landau damping results are not consist.
+	2. Find why the results of Ampere's Law are not correct.
+	3. Develope Vlasov solvers other than 'Fij99'.
+	4. Add Krook collison, diffusion and drag to Vlasov solver.
+	5. Benckmark with Vann2003 and Lesur2010.
+	
+More to consider:
+	1. Parallel implementation. This is a must for big code.
+	2. Develope a GK-1D code (PIC or Eulerian). For exercise. To see Alfven waves and 
+	so on.
+		  
+2011-08-30
+	07:54 Version 1.01, vlasov_bbmodel_v1.01.f90.
+	
+	12:00 Add Krook collison, and benckmark with Vann thesis. Use the same parameters,
+		  the results are similar: damped, steady state, periodic, chaotic. Nice! But
+		  need to check the details of code (some place may incorrect, e.g. 'efield3',
+		  the part of Ampere's law). About 52s to run one case(n=63, m=64, nt=30000).
+		  
+	14:03 Add friction(drag) + diffusion, benchmark with Lesur10. Not consist yet.
