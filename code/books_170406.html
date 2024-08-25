@@ -1,0 +1,4688 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>JabRef references</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script type="text/javascript">
+<!--
+// QuickSearch script for JabRef HTML export (no Abstract/BibTeX)
+// Version: 3.0
+//
+// Copyright (c) 2006-2011, Mark Schenk
+//
+// This software is distributed under a Creative Commons Attribution 3.0 License
+// http://creativecommons.org/licenses/by/3.0/
+//
+// Features:
+// - intuitive find-as-you-type searching
+//    ~ case insensitive
+//    ~ ignore diacritics (optional)
+//
+// - search with/without Regular Expressions
+// - match BibTeX key
+//
+
+// Search settings
+var noSquiggles = true; 	// ignore diacritics when searching
+var searchRegExp = false; 	// enable RegExp searches
+
+
+if (window.addEventListener) {
+	window.addEventListener("load",initSearch,false); }
+else if (window.attachEvent) {
+	window.attachEvent("onload", initSearch); }
+
+function initSearch() {
+	// check for quick search table and searchfield
+	if (!document.getElementById('qs_table')||!document.getElementById('quicksearch')) { return; }
+
+	// load all the rows and sort into arrays
+	loadTableData();
+	
+	//find the query field
+	qsfield = document.getElementById('qs_field');
+
+	// previous search term; used for speed optimisation
+	prevSearch = '';
+
+	//find statistics location
+	stats = document.getElementById('stat');
+	setStatistics(-1);
+	
+	// set up preferences
+	initPreferences();
+
+	// shows the searchfield
+	document.getElementById('quicksearch').style.display = 'block';
+	document.getElementById('qs_field').onkeyup = quickSearch;
+}
+
+function loadTableData() {
+	// find table and appropriate rows
+	searchTable = document.getElementById('qs_table');
+	var allRows = searchTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+	// split all rows into entryRows and infoRows (e.g. abstract, review, bibtex)
+	entryRows = new Array();
+
+	// get data from each row
+	entryRowsData = new Array();
+	
+	BibTeXKeys = new Array();
+	
+	for (var i=0, k=0, j=0; i<allRows.length;i++) {
+		if (allRows[i].className.match(/entry/)) {
+			entryRows[j] = allRows[i];
+			entryRowsData[j] = stripDiacritics(getTextContent(allRows[i]));
+			allRows[i].id ? BibTeXKeys[j] = allRows[i].id : allRows[i].id = 'autokey_'+j;
+			j ++;
+		}
+	}
+	//number of entries and rows
+	numEntries = entryRows.length;
+}
+
+function quickSearch(){
+	
+	tInput = qsfield;
+
+	if (tInput.value.length == 0) {
+		showAll();
+		setStatistics(-1);
+		qsfield.className = '';
+		return;
+	} else {
+		t = stripDiacritics(tInput.value);
+
+		if(!searchRegExp) { t = escapeRegExp(t); }
+			
+		// only search for valid RegExp
+		try {
+			textRegExp = new RegExp(t,"i");
+			qsfield.className = '';
+		}
+			catch(err) {
+			prevSearch = tInput.value;
+			qsfield.className = 'invalidsearch';
+			return;
+		}
+	}
+	
+	// count number of hits
+	var hits = 0;
+
+	// start looping through all entry rows
+	for (var i = 0; cRow = entryRows[i]; i++){
+
+		// only show search the cells if it isn't already hidden OR if the search term is getting shorter, then search all
+		if(cRow.className.indexOf('noshow')==-1 || tInput.value.length <= prevSearch.length){
+			var found = false; 
+
+			if (entryRowsData[i].search(textRegExp) != -1 || BibTeXKeys[i].search(textRegExp) != -1){ 
+				found = true;
+			}
+			
+			if (found){
+				cRow.className = 'entry show';
+				hits++;
+			} else {
+				cRow.className = 'entry noshow';
+			}
+		}
+	}
+
+	// update statistics
+	setStatistics(hits)
+	
+	// set previous search value
+	prevSearch = tInput.value;
+}
+
+
+// Strip Diacritics from text
+// http://stackoverflow.com/questions/990904/javascript-remove-accents-in-strings
+
+// String containing replacement characters for stripping accents 
+var stripstring = 
+    'AAAAAAACEEEEIIII'+
+    'DNOOOOO.OUUUUY..'+
+    'aaaaaaaceeeeiiii'+
+    'dnooooo.ouuuuy.y'+
+    'AaAaAaCcCcCcCcDd'+
+    'DdEeEeEeEeEeGgGg'+
+    'GgGgHhHhIiIiIiIi'+
+    'IiIiJjKkkLlLlLlL'+
+    'lJlNnNnNnnNnOoOo'+
+    'OoOoRrRrRrSsSsSs'+
+    'SsTtTtTtUuUuUuUu'+
+    'UuUuWwYyYZzZzZz.';
+
+function stripDiacritics(str){
+
+    if(noSquiggles==false){
+        return str;
+    }
+
+    var answer='';
+    for(var i=0;i<str.length;i++){
+        var ch=str[i];
+        var chindex=ch.charCodeAt(0)-192;   // Index of character code in the strip string
+        if(chindex>=0 && chindex<stripstring.length){
+            // Character is within our table, so we can strip the accent...
+            var outch=stripstring.charAt(chindex);
+            // ...unless it was shown as a '.'
+            if(outch!='.')ch=outch;
+        }
+        answer+=ch;
+    }
+    return answer;
+}
+
+// http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
+// NOTE: must escape every \ in the export code because of the JabRef Export...
+function escapeRegExp(str) {
+  return str.replace(/[-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+}
+
+function setStatistics (hits) {
+	if(hits < 0) { hits=numEntries; }
+	if(stats) { stats.firstChild.data = hits + '/' + numEntries}
+}
+
+function getTextContent(node) {
+	// Function written by Arve Bersvendsen
+	// http://www.virtuelvis.com
+	
+	if (node.nodeType == 3) {
+	return node.nodeValue;
+	} // text node
+	if (node.nodeType == 1 && node.className != "infolinks") { // element node
+	var text = [];
+	for (var chld = node.firstChild;chld;chld=chld.nextSibling) {
+		text.push(getTextContent(chld));
+	}
+	return text.join("");
+	} return ""; // some other node, won't contain text nodes.
+}
+
+function showAll(){
+	for (var i = 0; i < numEntries; i++){ entryRows[i].className = 'entry show'; }
+}
+
+function clearQS() {
+	qsfield.value = '';
+	showAll();
+}
+
+function redoQS(){
+	showAll();
+	quickSearch(qsfield);
+}
+
+function updateSetting(obj){
+	var option = obj.id;
+	var checked = obj.value;
+
+	switch(option)
+	 {
+	 case "opt_useRegExp":
+	   searchRegExp=!searchRegExp;
+	   redoQS();
+	   break;
+	 case "opt_noAccents":
+	   noSquiggles=!noSquiggles;
+	   loadTableData();
+	   redoQS();
+	   break;
+	 }
+}
+
+function initPreferences(){
+	if(noSquiggles){document.getElementById("opt_noAccents").checked = true;}
+	if(searchRegExp){document.getElementById("opt_useRegExp").checked = true;}
+}
+
+function toggleSettings(){
+	var togglebutton = document.getElementById('showsettings');
+	var settings = document.getElementById('settings');
+	
+	if(settings.className == "hidden"){
+		settings.className = "show";
+		togglebutton.innerText = "close settings";
+		togglebutton.textContent = "close settings";
+	}else{
+		settings.className = "hidden";
+		togglebutton.innerText = "settings...";		
+		togglebutton.textContent = "settings...";
+	}
+}
+
+-->
+</script>
+<style type="text/css">
+body { background-color: white; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.2; padding: 1em; color: #2E2E2E; margin: auto 2em; }
+
+form#quicksearch { width: auto; border-style: solid; border-color: gray; border-width: 1px 0px; padding: 0.7em 0.5em; display:none; position:relative; }
+span#searchstat {padding-left: 1em;}
+
+div#settings { margin-top:0.7em; /* border-bottom: 1px transparent solid; background-color: #efefef; border: 1px grey solid; */ }
+div#settings ul {margin: 0; padding: 0; }
+div#settings li {margin: 0; padding: 0 1em 0 0; display: inline; list-style: none; }
+div#settings li + li { border-left: 2px #efefef solid; padding-left: 0.5em;}
+div#settings input { margin-bottom: 0px;}
+
+div#settings.hidden {display:none;}
+
+#showsettings { border: 1px grey solid; padding: 0 0.5em; float:right; line-height: 1.6em; text-align: right; }
+#showsettings:hover { cursor: pointer; }
+
+.invalidsearch { background-color: red; }
+input[type="button"] { background-color: #efefef; border: 1px #2E2E2E solid;}
+
+table { width: 100%; empty-cells: show; border-spacing: 0em 0.2em; margin: 1em 0em; border-style: none; }
+th, td { border: 1px gray solid; border-width: 1px 1px; padding: 0.5em; vertical-align: top; text-align: left; }
+th { background-color: #efefef; }
+td + td, th + th { border-left: none; }
+
+td a { color: navy; text-decoration: none; }
+td a:hover  { text-decoration: underline; }
+
+tr.noshow { display: none;}
+tr.highlight td { background-color: #EFEFEF; border-top: 2px #2E2E2E solid; font-weight: bold; }
+tr.abstract td, tr.review td, tr.bibtex td { background-color: #EFEFEF; text-align: justify; border-bottom: 2px #2E2E2E solid; }
+tr.nextshow td { border-bottom: 1px gray solid; }
+
+tr.bibtex pre { width: 100%; overflow: auto; white-space: pre-wrap;}
+p.infolinks { margin: 0.3em 0em 0em 0em; padding: 0px; }
+
+@media print {
+	p.infolinks, #qs_settings, #quicksearch, t.bibtex { display: none !important; }
+	tr { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<form action="" id="quicksearch">
+<input type="text" id="qs_field" autocomplete="off" placeholder="Type to search..." /> <input type="button" onclick="clearQS()" value="clear" />
+<span id="searchstat">Matching entries: <span id="stat">0</span></span>
+<div id="showsettings" onclick="toggleSettings()">settings...</div>
+<div id="settings" class="hidden">
+<ul>
+<li><input type="checkbox" class="search_setting" id="opt_useRegExp" onchange="updateSetting(this)"><label for="opt_useRegExp"> use RegExp</label></li>
+<li><input type="checkbox" class="search_setting" id="opt_noAccents" onchange="updateSetting(this)"><label for="opt_noAccents"> ignore accents</label></li>
+</ul>
+</div>
+</form>
+<table id="qs_table" border="1">
+<thead><tr><th width="20%">Author</th><th width="30%">Title</th><th width="5%">Year</th><th width="30%">Journal/Proceedings</th><th width="10%">Reftype</th><th width="5%">DOI/URL</th></tr></thead>
+<tbody><tr id="阿尔芬1974" class="entry">
+	<td>阿尔芬 null, H. and 菲尔塔玛 null, G.G.</td>
+	<td>宇宙电动力学</td>
+	<td>1974</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Abdullaev2004" class="entry">
+	<td>Abdullaev, F. and Konotop, V.V.</td>
+	<td>Nonlinear Waves: Classical and Quantum Aspects</td>
+	<td>2004</td>
+	<td>, pp. 502&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=CE96511A34099A94D1F8344E49F8005E">URL</a>&nbsp;</td>
+</tr>
+<tr id="Abdullaev2014" class="entry">
+	<td>Abdullaev, S.</td>
+	<td>Magnetic Stochasticity in Magnetically Confined Fusion Plasmas: Chaos of Field Lines and Charged Particle Dynamics</td>
+	<td>2014</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=5fb319c76c7a14796c93e07d5cf13600">URL</a>&nbsp;</td>
+</tr>
+<tr id="Abdullaev2006" class="entry">
+	<td>Abdullaev, S.S.</td>
+	<td>Construction of Mappings for Hamiltonian Systems and Their Applications</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Abell2004" class="entry">
+	<td>Abell, M. and Braselton, J.</td>
+	<td>Differential Equations with Mathematica</td>
+	<td>2004</td>
+	<td>, pp. 641&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=A2E392DC05B950A6AF67F05F095493C8">URL</a>&nbsp;</td>
+</tr>
+<tr id="Abramowitz1972" class="entry">
+	<td>Abramowitz, M. and Stegun, I.A.</td>
+	<td>Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables</td>
+	<td>1972</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://people.math.sfu.ca/~cbm/aands/">URL</a>&nbsp;</td>
+</tr>
+<tr id="Akhiezer1975" class="entry">
+	<td>Akhiezer, A.I. and Akhiezer, I.A.</td>
+	<td>Plasma electrodynamics v. 1 Linear theory</td>
+	<td>1975</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=375152140f857069e2b1edf278190059&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Akhiezer1975a" class="entry">
+	<td>Akhiezer, A.I., Akhiezer, I.A. and Polovin, R.V.</td>
+	<td>Non-Linear Theory and Fluctuations. Plasma Electrodynamics</td>
+	<td>1975</td>
+	<td>, pp. 312&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=06d88ecd0fdac1c33c0fbede3295cf4b&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Alder1964" class="entry">
+	<td>Alder, B., Fernbach, S. and Rotenberg, M.</td>
+	<td>Methods in computational physics 3. Fundamental methods in hydrodynamics</td>
+	<td>1964</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=3A4022396EE9BD231E5A81D3D2400291">URL</a>&nbsp;</td>
+</tr>
+<tr id="Aleksandrov1984" class="entry">
+	<td>Aleksandrov, A.F. and Larisa Semenovna Bogdankevich, A.A.R.</td>
+	<td>Principles of plasma electrodynamics</td>
+	<td>1984</td>
+	<td>, pp. 488&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Alfven1963" class="entry">
+	<td>Alfven, H.</td>
+	<td>Cosmical Electrodynamics: Fundamental principles</td>
+	<td>1963</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Allen2004" class="entry">
+	<td>Allen, J.A.V.</td>
+	<td>Origins of magnetospheric physics</td>
+	<td>2004</td>
+	<td>, pp. 148&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=1F4BF4FC6735E8C5804E53F41E247127">URL</a>&nbsp;</td>
+</tr>
+<tr id="Allis1956" class="entry">
+	<td>Allis, W.P., Brückner, K.A. and Chew, G.F.</td>
+	<td>Series of lectures on physics of ionized gases</td>
+	<td>1956</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://books.google.com.hk/books/about/Series_of_lectures_on_physics_of_ionized.html?id=6M7vAAAAMAAJ">URL</a>&nbsp;</td>
+</tr>
+<tr id="Anderson1970" class="entry">
+	<td>Anderson, K.A.</td>
+	<td>Particles and Fields in the Magnetosphere: Proceedings of a Symposium Organized by the Summer Advanced Study Institute, Held at the University of California, Santa Barbara, Calif., August 4–15, 1969</td>
+	<td>1970</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=633aacc5faa690943bcba8da27ac7d9d">URL</a>&nbsp;</td>
+</tr>
+<tr id="Andersson2012" class="entry">
+	<td>Andersson, B., Andersson, R. and Love Håkansson Mikael Mortensen, R.S.B.v.W.</td>
+	<td>Computational fluid dynamics for engineers</td>
+	<td>2012</td>
+	<td>, pp. 212&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=0c290498103228543cf0f50a34844368">URL</a>&nbsp;</td>
+</tr>
+<tr id="Anile2005" class="entry">
+	<td>Anile, A.M.</td>
+	<td>Relativistic Fluids and Magneto-fluids: With Applications in Astrophysics and Plasma Physics</td>
+	<td>2005</td>
+	<td>, pp. 352&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=A142ED4E6F63B29B9C360F480D0F58B0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Anile1989" class="entry">
+	<td>Anile, A.M. and Choquet-Bruhat, Y.</td>
+	<td>Relativistic Fluid Dynamics</td>
+	<td>1989</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Antsiferov1998" class="entry">
+	<td>Antsiferov, V. and G.I.Smirnov</td>
+	<td>Coherent Radiation Processes in Plasma</td>
+	<td>1998</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://en.bookfi.org/book/1216722">URL</a>&nbsp;</td>
+</tr>
+<tr id="Arfken2005" class="entry">
+	<td>Arfken, G.B. and Weber, H.J.</td>
+	<td>Mathematical Methods for Physicists</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Argomedo2014" class="entry">
+	<td>Argomedo, F.B., Witrant, E. and Prieur, C.</td>
+	<td>Safety Factor Profile Control in a Tokamak</td>
+	<td>2014</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=562c2b1c29b5a93b7286b62a7e2e44ff">URL</a>&nbsp;</td>
+</tr>
+<tr id="Ariola2008" class="entry">
+	<td>Ariola, M. and Pironti, A.</td>
+	<td>Magnetic Control of Tokamak Plasmas</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Aschwanden2006" class="entry">
+	<td>Aschwanden, M.</td>
+	<td>Physics of the Solar Corona: An Introduction with Problems and Solutions</td>
+	<td>2006</td>
+	<td>, pp. 924&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Atzeni2009" class="entry">
+	<td>Atzeni, S. and ter Vehn, J.M.</td>
+	<td>The Physics of Inertial Fusion: Beam Plasma Interaction, Hydrodynamics, Hot Dense Matter (only Chap1-8)</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Baker1975" class="entry">
+	<td>Baker, G.A.</td>
+	<td>Essentials of Pade Approximants</td>
+	<td>1975</td>
+	<td>, pp. 316&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=B393E6FC04696E662B1CA47F56FABAD6">URL</a>&nbsp;</td>
+</tr>
+<tr id="Bakunin2008" class="entry">
+	<td>Bakunin, O.G.</td>
+	<td>Turbulence and Diffusion: Scaling Versus Equations</td>
+	<td>2008</td>
+	<td>, pp. 284&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=0f66ea917b4288e6eb9a695e12b460e2">URL</a>&nbsp;</td>
+</tr>
+<tr id="Balesc2005" class="entry">
+	<td>Balesc, R.</td>
+	<td>Aspects of Anomalous Transport in Plasmas</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Balescu1995" class="entry">
+	<td>Balescu</td>
+	<td>等离体中的输运过程-第1卷-经典输运理论</td>
+	<td>1995</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Balescu1997" class="entry">
+	<td>Balescu, R.</td>
+	<td>Statistical dynamics: matter out of equilibrium</td>
+	<td>1997</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=79B395968AFBAB66FAD4BE23EEEFC50C">URL</a>&nbsp;</td>
+</tr>
+<tr id="Balescu1988a" class="entry">
+	<td>Balescu, R.</td>
+	<td>Transport Processes in Plasmas: 1. Classical Transport Theory</td>
+	<td>1988</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Balescu1988b" class="entry">
+	<td>Balescu, R.</td>
+	<td>Transport Processes in Plasmas: 2. Neoclassical transport theory</td>
+	<td>1988</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Balescu1975" class="entry">
+	<td>Balescu, R.</td>
+	<td>Equilibrium and nonequilibrium statistical mechanics</td>
+	<td>1975</td>
+	<td>, pp. 756&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=14DAAFAA700179C41F6AFDF10A85A1DC">URL</a>&nbsp;</td>
+</tr>
+<tr id="Balescu1971" class="entry">
+	<td>Balescu, R., Lebowitz, J.L., Prigogine, I., Resibois, P., Salsburg, Z., Schieve, W.C., Velarde, M.G. and Grecos, A.P.</td>
+	<td>Lectures in Statistical Physics</td>
+	<td>1971</td>
+	<td>, pp. 186&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=DBBB73914C5CB2D830D25CCFD694D57B">URL</a>&nbsp;</td>
+</tr>
+<tr id="Bart2008" class="entry">
+	<td>Bart, H., Ran, A.C.M. and Israel Gohberg, M.A.K.</td>
+	<td>Factorization of Matrix and Operator Functions: The State Space Method</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://link.springer.com/book/10.1007%2F978-3-7643-8268-1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Bateman1978." class="entry">
+	<td>Bateman, G.</td>
+	<td>MHD Instabilities</td>
+	<td>1978</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://books.google.com.hk/books/about/Mhd_Instabilities.html?id=AyBRAAAAMAAJ">URL</a>&nbsp;</td>
+</tr>
+<tr id="Battaner1996" class="entry">
+	<td>Battaner, E.</td>
+	<td>Astrophysical Fluid Dynamics</td>
+	<td>1996</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Bauer1978" class="entry">
+	<td>Bauer, F., Betancourt, O. and Garabedian, P.</td>
+	<td>A Computational Method in Plasma Physics</td>
+	<td>1978</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://link.springer.com/book/10.1007/978-3-642-85470-5/page/1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Baumann2005" class="entry">
+	<td>Baumann, G.</td>
+	<td>Mathematica for Theoretical Physics: Classical Mechanics and Nonlinear Dynamics</td>
+	<td>2005</td>
+	<td>, pp. 556&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=B94DF31E5B1F10B839F4E7FC334E708F">URL</a>&nbsp;</td>
+</tr>
+<tr id="Baumann2005a" class="entry">
+	<td>Baumann, G.</td>
+	<td>Mathematica for Theoretical Physics II Electrodynamics, Quant Mech, Gen. Relativity</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=3088F971B07E40D08FEBDA42569764A5">URL</a>&nbsp;</td>
+</tr>
+<tr id="Baumgartel1987" class="entry">
+	<td>Baumgartel, K. and Sauer, K.</td>
+	<td>Topics on Nonlinear Wave-Plasma Interaction</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=f9f6b33690eaefe0d929b5b7be2185db">URL</a>&nbsp;</td>
+</tr>
+<tr id="Baumjohann1996" class="entry">
+	<td>Baumjohann, W. and Treumann, R.A.</td>
+	<td>Basic Space Plasma Physics</td>
+	<td>1996</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Bekefi1966" class="entry">
+	<td>Bekefi, G.</td>
+	<td>Radiation processes in plasmas</td>
+	<td>1966</td>
+	<td>, pp. 377&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Bellan2008" class="entry">
+	<td>Bellan, P.M.</td>
+	<td>Fundamentals of Plasma Physics</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Bellan2000" class="entry">
+	<td>Bellan, P.M.</td>
+	<td>Spheromaks: A Practical Application of Magnetohydrodynamic Dynamos and Plasma Self-Organization</td>
+	<td>2000</td>
+	<td>, pp. 341&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Belotserkovskii2010" class="entry">
+	<td>Belotserkovskii, O.M. and Khlopkov, Y.I.</td>
+	<td>Monte Carlo Methods In Mechanics Of Fluid And Gas</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.worldscientific.com/worldscibooks/10.1142/7423#t=aboutBook">URL</a>&nbsp;</td>
+</tr>
+<tr id="Bender1999" class="entry">
+	<td>Bender, C.M. and Orszag, S.A.</td>
+	<td>Advanced Mathematical Methods for Scientists and Engineers I: Asymptotic Methods and Perturbation Theory</td>
+	<td>1999</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=d415c3bd2bae2b6b510350602463eff6">URL</a>&nbsp;</td>
+</tr>
+<tr id="Bender1978" class="entry">
+	<td>Bender, C.M. and Orszag, S.A.</td>
+	<td>Advanced mathematical methods for scientists and engineers</td>
+	<td>1978</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=c82ca12ae788c3252813ee2ac96c2f77">URL</a>&nbsp;</td>
+</tr>
+<tr id="Benkadda2007" class="entry">
+	<td>Benkadda, S.</td>
+	<td>Turbulent transport in fusion plasmas : First ITER International Summer School : Aix en Provence, France, 16-20 July 2007</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Turbulent-Transport-Fusion-Plasmas-International/dp/0735405344/ref=sr_1_1?s=books&ie=UTF8&qid=1325498947&sr=1-1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Benz2002" class="entry">
+	<td>Benz, A.O.</td>
+	<td>Plasma Astrophysics -- Kinetic Processes in Solar and Stellar Coronae</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Bernatz2010" class="entry">
+	<td>Bernatz, R.</td>
+	<td>Fourier Series and Numerical Methods for Partial Differential Equations</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=AE422F2EBCE3FF948678E4D5BEF9D628">URL</a>&nbsp;</td>
+</tr>
+<tr id="Billo2007" class="entry">
+	<td>Billo, E.J.</td>
+	<td>Excel for Scientists and Engineers: Numerical Methods</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=D4543A5B19DC193CD215201270FE4C24">URL</a>&nbsp;</td>
+</tr>
+<tr id="Binney2008" class="entry">
+	<td>Binney, J. and Tremaine, S.</td>
+	<td>Galactic Dynamics</td>
+	<td>2008</td>
+	<td>, pp. 868&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=CD0FD2E719D8966F78EEE1F04EEE540E">URL</a>&nbsp;</td>
+</tr>
+<tr id="Birdsall1991" class="entry">
+	<td>Birdsall, C. and Langdon, A.</td>
+	<td>Plasma Physcis via Computer Simulation</td>
+	<td>1991</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Biringen2011" class="entry">
+	<td>Biringen, S. and Chow, C.-Y.</td>
+	<td>An Introduction to Computational Fluid Mechanics by Example</td>
+	<td>2011</td>
+	<td>, pp. 319&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=5635808EB499DAD79F35AE8CECC5A74D">URL</a>&nbsp;</td>
+</tr>
+<tr id="Birn2007" class="entry">
+	<td>Birn, J. and Priest, E.R.</td>
+	<td>Reconnection of Magnetic Fields: Magnetohydrodynamics and Collisionless Theory and Observations</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Biskamp2008" class="entry">
+	<td>Biskamp, D.</td>
+	<td>Magnetohydrodynamic Turbulence</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Biskamp2000" class="entry">
+	<td>Biskamp, D.</td>
+	<td>Magnetic Reconnection in Plasmas</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Biskamp1997" class="entry">
+	<td>Biskamp, D.</td>
+	<td>Nonlinear Magnetohydrodynamics</td>
+	<td>1997</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Bleistein2010" class="entry">
+	<td>Bleistein, N. and Handelsman, R.A.</td>
+	<td>Asymptotic Expansions of Integrals</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=fc7221f79fec556b4f7d72974f7acc5e">URL</a>&nbsp;</td>
+</tr>
+<tr id="Blum1989" class="entry">
+	<td>Blum, J.</td>
+	<td>Numerical Simulation and Optimal Control in Plasma Physics: With Applications to Tokamaks</td>
+	<td>1989</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Bodenheimer2007" class="entry">
+	<td>Bodenheimer Peter; Laughlin, G.P.R.M.Y.H.W.</td>
+	<td>Numerical Methods in Astrophysics: An Introduction</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=3a1fbe62aef3629f901e6fa69cd1de10">URL</a>&nbsp;</td>
+</tr>
+<tr id="Bona2009" class="entry">
+	<td>Bona, C., Palenzuela-Luque, C. and Bona-Casas, C.</td>
+	<td>Elements of Numerical Relativity and Relativistic Hydrodynamics: From Einstein' s Equations to Astrophysical Simulations</td>
+	<td>2009</td>
+	<td>, pp. 225&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=1B8CFD0E9E5FC1B1F3E78A6A3E9C986C">URL</a>&nbsp;</td>
+</tr>
+<tr id="Boyd2001" class="entry">
+	<td>Boyd, J.P.</td>
+	<td>Chebyshev and Fourier spectral methods</td>
+	<td>2001</td>
+	<td>, pp. 689&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=0E9313600663FC1209485C0BFAC7A985">URL</a>&nbsp;</td>
+</tr>
+<tr id="Boyd2003" class="entry">
+	<td>Boyd, T.J.M. and Sanderson, J.J.</td>
+	<td>The Physics of Plasmas</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Braams2002" class="entry">
+	<td>Braams, C. and Stott, P.</td>
+	<td>Nuclear Fusion: Half a Century of Magnetic Confinement Fusion Research</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Brabec2008" class="entry">
+	<td>Brabec, T.</td>
+	<td>Strong Field Laser Physics</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Braginskii1965" class="entry">
+	<td>Braginskii, S.I.</td>
+	<td>Transport processes in a plasma</td>
+	<td>1965</td>
+	<td><br/>Vol. Reviews of Plasma Physics, Vol. 1, p 205-311&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Brambilla2012" class="entry">
+	<td>Brambilla, M.</td>
+	<td>Kinetic Theory of Plasma Waves Homogeneous Plasmas</td>
+	<td>2012</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://books.google.com.hk/books?id=Che5F-ZdvLQC&pg=PA124&lpg=PA124&dq=Generalized+Plasma+Dispersion+Function&source=bl&ots=ZNbCF3o-MQ&sig=L1ag9gOZwc86KSssf6WLmKby19o&hl=en&sa=X&ei=v8GVUa_FCYi-kQWZzYGYCw&ved=0CHcQ6AEwCQ#v=onepage&q=Generalized%20Plasma%20Dispersion%20Function&f=false">URL</a>&nbsp;</td>
+</tr>
+<tr id="Brambilla1998" class="entry">
+	<td>Brambilla, M.</td>
+	<td>Kinetic Theory of Plasma Waves: Homogeneous Plasmas</td>
+	<td>1998</td>
+	<td>, pp. 656&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Kinetic-Theory-Plasma-Waves-International/dp/0198559569#">URL</a>&nbsp;</td>
+</tr>
+<tr id="Breuer2002" class="entry">
+	<td>Breuer, H.-P. and Petruccione, F.</td>
+	<td>The Theory of Open Quantum Systems</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=9E9EA5DA2BBAC9919A5A56A6B336F55F">URL</a>&nbsp;</td>
+</tr>
+<tr id="Brezinski1991" class="entry">
+	<td>Brezinski, C.</td>
+	<td>Continued fractions and Pade approximants</td>
+	<td>1991</td>
+	<td>, pp. 331&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=6C901C33099778C402FE8E32CE421CEE">URL</a>&nbsp;</td>
+</tr>
+<tr id="Briggs2000" class="entry">
+	<td>Briggs, W.L., Henson, V.E. and McCormick, S.F.</td>
+	<td>A Multigrid Tutorial</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Brizard2008" class="entry">
+	<td>Brizard, A.J.</td>
+	<td>An Introduction to Lagrangian Mechanics</td>
+	<td>2008</td>
+	<td>, pp. 232&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=EE6B17FA6A9977CC9FE94FB056E30E3D">URL</a>&nbsp;</td>
+</tr>
+<tr id="Brown1995" class="entry">
+	<td>Brown, L.M., Pais, A. and Pippard, B.</td>
+	<td>Twentieth Century Physics. Vols. 1-3</td>
+	<td>1995</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=88CE4A59ABD892636F931F26FB250DE3">URL</a>&nbsp;</td>
+</tr>
+<tr id="Brown1999" class="entry">
+	<td>Brown, M.R., Canfield, R.C. and Pevtsov, A.A.</td>
+	<td>Magnetic Helicity in Space and Laboratory Plasmas</td>
+	<td>1999</td>
+	<td>, pp. 302&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=06ef60c509741a1e93641240c001745e&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Bruijn2010" class="entry">
+	<td>de Bruijn, N.G.</td>
+	<td>Asymptotic methods in analysis</td>
+	<td>2010</td>
+	<td>, pp. 210&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=4FC80B3F47633B17B3DC18A2DF1829B5">URL</a>&nbsp;</td>
+</tr>
+<tr id="Buechner2003" class="entry">
+	<td>Büchner, J., Dum, C. and Scholer, M.</td>
+	<td>Space Plasma Simulation</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Burch2009" class="entry">
+	<td>Burch, J.L., Escoubet, C.P. and F. Darrouzet J. De Keyser, V.P.(e.</td>
+	<td>The Earth’s Plasmasphere: A CLUSTER and IMAGE Perspective</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=11FC8CC891A3F8DAFEA80CB04DE5AB68">URL</a>&nbsp;</td>
+</tr>
+<tr id="Cairns1991" class="entry">
+	<td>Cairns, R.A.</td>
+	<td>Radiofrequency Heating of Plasmas</td>
+	<td>1991</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Callen2006" class="entry">
+	<td>Callen, J.</td>
+	<td>Fundamentals of Plasma Physics</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://homepages.cae.wisc.edu/~callen/book.html">URL</a>&nbsp;</td>
+</tr>
+<tr id="Cap2003" class="entry">
+	<td>Cap, F.F.</td>
+	<td>Mathematical Methods in Physics and Engineering with Mathematica</td>
+	<td>2003</td>
+	<td>, pp. 339&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=40b4a1bcb3f7a8cd2ff3afe8927c5d23">URL</a>&nbsp;</td>
+</tr>
+<tr id="Cardy2009" class="entry">
+	<td>Cardy, J., Falkovich, G., Gawedzki, K., Nazarenko, S. and Zaboronski, O.V.</td>
+	<td>Non-equilibrium Statistical Mechanics and Turbulence</td>
+	<td>2009</td>
+	<td>, pp. 171&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=C7EB92BFFE1AAFCAC2BE959863EF457E">URL</a>&nbsp;</td>
+</tr>
+<tr id="Castor2004" class="entry">
+	<td>Castor, J.I.</td>
+	<td>Radiation hydrodynamics</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Cebeci2005" class="entry">
+	<td>Cebeci, T., Kafyeke, F. and Jian P. Shao, E.L.</td>
+	<td>Computational Fluid Dynamics for Engineers: From Panel to Navier-Stokes Methods with Computer Programs</td>
+	<td>2005</td>
+	<td>, pp. 402&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=9d9be48ae467f7ebccf515e470839f55">URL</a>&nbsp;</td>
+</tr>
+<tr id="Chabert2011" class="entry">
+	<td>Chabert, P. and Braithwaite, N.</td>
+	<td>Physics of Radio-Frequency Plasmas</td>
+	<td>2011</td>
+	<td>, pp. 395&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8BAEEF053198C41EC8BC64666000FC76">URL</a>&nbsp;</td>
+</tr>
+<tr id="Chandrasekhar1981" class="entry">
+	<td>Chandrasekhar, S.</td>
+	<td>Hydrodynamic and hydromagnetic stability</td>
+	<td>1981</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=1654471CF3606A13F2D8DAE092D06CCD">URL</a>&nbsp;</td>
+</tr>
+<tr id="Chandrasekhar1961" class="entry">
+	<td>Chandrasekhar, S.</td>
+	<td>Hydrodynamic and Hydromagnetic Stability</td>
+	<td>1961</td>
+	<td>, pp. 354&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=27B349168AAB0A9FA2A74929451890D1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Chandrasekhar1960" class="entry">
+	<td>Chandrasekhar, S.</td>
+	<td>Plasma Physics (Phoenix Science) by</td>
+	<td>1960</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Chang2015" class="entry">
+	<td>Chang, T.T.S.</td>
+	<td>An Introduction to Space Plasma Complexity</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Chapman1952" class="entry">
+	<td>Chapman, S. and Cowling, T.G.</td>
+	<td>The Mathematical Theory of Non-uniform Gases</td>
+	<td>1952</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Chapman1970" class="entry">
+	<td>Chapman, S. and Cowling, T.G.</td>
+	<td>The Mathematical Theory of Non-uniform Gases</td>
+	<td>1970</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Chapra2011" class="entry">
+	<td>Chapra, S.</td>
+	<td>Applied Numerical Methods with MATLAB: For Engineers and Scientists</td>
+	<td>2011</td>
+	<td>, pp. 673&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=857C4CB773A48CC93DCA0834F1DF9F64">URL</a>&nbsp;</td>
+</tr>
+<tr id="Chen1984" class="entry">
+	<td>Chen, F.F.</td>
+	<td>Introduction to plasma physics and controlled fusion. Volume 1, Plasma physics</td>
+	<td>1984</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Chen2015" class="entry">
+	<td>Chen, F.F.</td>
+	<td>Introduction to Plasma Physics and Controlled Fusion</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=d5179c6954da29cc155a412e26f9e6b3">URL</a>&nbsp;</td>
+</tr>
+<tr id="Chen2011" class="entry">
+	<td>Chen, F.F.</td>
+	<td>An Indispensable Truth: How Fusion Power Can Save the Planet</td>
+	<td>2011</td>
+	<td>, pp. 452&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.springer.com/energy/renewable+and+green+energy/book/978-1-4419-7819-6">URL</a>&nbsp;</td>
+</tr>
+<tr id="Chen2003" class="entry">
+	<td>Chen, F.F. and Chang, J.P.</td>
+	<td>Lecture Notes on Principles of Plasma Processing</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Chen1987" class="entry">
+	<td>Chen, L.</td>
+	<td>Waves and Instabilities of Plasmas</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Chirikov1987" class="entry">
+	<td>Chirikov, B.V.</td>
+	<td>Reviews of Plasma Physics: Volume 13</td>
+	<td>1987</td>
+	<td>, pp. 392&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=03d675680302eb15b16a8f63b663e4dc&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Chiuderi2015" class="entry">
+	<td>Chiuderi, C. and Velli, M.</td>
+	<td>Basics of Plasma Astrophysics</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=bcdd507f80fbedd63987c51c2ec055fb">URL</a>&nbsp;</td>
+</tr>
+<tr id="Clark2005" class="entry">
+	<td>Clark, R.E.H. and Reiter, D.</td>
+	<td>Nuclear Fusion Research Understanding Plasma-Surface Interactions</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Clarke2007" class="entry">
+	<td>Clarke, C. and Carswell, B.</td>
+	<td>Principles of Astrophysical Fluid Dynamics</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=DFA0B60D5DE9776A66827CD74D10BCAF">URL</a>&nbsp;</td>
+</tr>
+<tr id="Colin2009" class="entry">
+	<td>Colín, L.S.G. and Dagdug, L.</td>
+	<td>The Kinetic Theory of Inert Dilute Plasmas</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Committee2004" class="entry">
+	<td>Committee</td>
+	<td>Exploration of the Outer Heliosphere and the Local Interstellar Medium: A Workshop Report</td>
+	<td>2004</td>
+	<td>, pp. 69&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Committee1999" class="entry">
+	<td>Committee</td>
+	<td>Summary of Opportunities in the Fusion Energy Sciences Program</td>
+	<td>1999</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Connor2006" class="entry">
+	<td>Connor, J.W., Sauter, O. and Sindoni, E.</td>
+	<td>Theory of fusion plasmas: proceedings of the Joint Varenna-Lausanne International Workshop, Varenna, Italy, 28 August-1 September 2006</td>
+	<td>2006</td>
+	<td>, pp. 449&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Theory-Fusion-Plasmas-Varenna-Lausanne-International/dp/0735403767/ref=sr_1_2?s=books&ie=UTF8&qid=1325499347&sr=1-2">URL</a>&nbsp;</td>
+</tr>
+<tr id="Coppi1981" class="entry">
+	<td>Coppi, B.</td>
+	<td>Physics of Plasmas Close to Thermonuclear Conditions. Proceedings of the Course Held in Varenna, Italy, 27 August–8 September 1979</td>
+	<td>1981</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=fa367d4ab6d2e41402437b60fd685332">URL</a>&nbsp;</td>
+</tr>
+<tr id="Cordier2005" class="entry">
+	<td>Cordier, S., Goudon, T. and Michael Gutnic, E.S.</td>
+	<td>Numerical Methods for Hyperbolic and Kinetic Problems: CEMRACS 2003 (IRMA Lectures in Mathematics &amp; Theoretical Physics, 7)</td>
+	<td>2005</td>
+	<td>, pp. 369&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=B7991A7853D099C4A316E13DCB777304">URL</a>&nbsp;</td>
+</tr>
+<tr id="Craik1986" class="entry">
+	<td>Craik, A.D.D.</td>
+	<td>Wave Interactions and Fluid Flows</td>
+	<td>1986</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://ebooks.cambridge.org/ebook.jsf?bid=CBO9780511569548">URL</a>&nbsp;</td>
+</tr>
+<tr id="Cramer2001" class="entry">
+	<td>Cramer, N.F.</td>
+	<td>The Physics of Alfvén Waves</td>
+	<td>2001</td>
+	<td>, pp. 400&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Cravens2004" class="entry">
+	<td>Cravens, T.E.</td>
+	<td>Physics of Solar System Plasmas</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Cravens1997" class="entry">
+	<td>Cravens, T.E.</td>
+	<td>Physics of solar system plasmas</td>
+	<td>1997</td>
+	<td>, pp. 483&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=C60BEF71747D953B49293854BC4E636C">URL</a>&nbsp;</td>
+</tr>
+<tr id="Cross1988" class="entry">
+	<td>Cross, R.</td>
+	<td>An Introduction to Alfven Waves</td>
+	<td>1988</td>
+	<td>, pp. 236&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=E9F6F0E5129610FA0E63786A1D60A68F">URL</a>&nbsp;</td>
+</tr>
+<tr id="Cuyt2008" class="entry">
+	<td>Cuyt, A.A.M., Petersen, V., Verdonk, B., Waadeland, H., Jones, W.B., Backeljauw, F. and Bonan-Hamada, C.</td>
+	<td>Handbook of continued fractions for special functions</td>
+	<td>2008</td>
+	<td>, pp. 430&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=94168E7EE05A3B15B13E59455DD695F4">URL</a>&nbsp;</td>
+</tr>
+<tr id="Dalgarno1987" class="entry">
+	<td>Dalgarno, A. and Layzer, D.</td>
+	<td>Spectroscopy of Astrophysical Plasmas</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=4260214C0261A08A48A6804515F69295">URL</a>&nbsp;</td>
+</tr>
+<tr id="Dam1989" class="entry">
+	<td>Dam, J.W.V.</td>
+	<td>From particle s to plasmas : lectures honoring Marshall N. Rosenbluth</td>
+	<td>1989</td>
+	<td>, pp. 368&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Danaila2007" class="entry">
+	<td>Danaila, I., Joly, P., Kaber, S.M. and Postel, M.</td>
+	<td>An Introduction to Scientific Computing Twelve Computational Projects Solved with MATLAB</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Davidson.P2001" class="entry">
+	<td>Davidson, P.A.</td>
+	<td>An Introduction to Magnetohydrodynamics</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Davidson.R2001" class="entry">
+	<td>Davidson, R.</td>
+	<td>The Physics of Nonneutral Plasmas</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Davidson1990" class="entry">
+	<td>Davidson, R.</td>
+	<td>An Introduction to the Physics of Nonneutral Plasma</td>
+	<td>1990</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Davidson1974" class="entry">
+	<td>Davidson, R.</td>
+	<td>Theory of Nonneutral Plasmas</td>
+	<td>1974</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Davidson1972" class="entry">
+	<td>Davidson, R.</td>
+	<td>Methods in Nonlinear Plasma Theory</td>
+	<td>1972</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Davis1960" class="entry">
+	<td>Davis, H.T.</td>
+	<td>Introduction to Nonlinear Differential and Integral Equations</td>
+	<td>1960</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Debnath2005" class="entry">
+	<td>Debnath, L. and Mikusinski, P.</td>
+	<td>Introduction to Hilbert Spaces with Applications</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://ishare.iask.sina.com.cn/f/14723093.html">URL</a>&nbsp;</td>
+</tr>
+<tr id="Dendy1990" class="entry">
+	<td>Dendy, R.O.</td>
+	<td>Plasma Dynamics</td>
+	<td>1990</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="DHaeseleer1991" class="entry">
+	<td>DHaeseleer, W.D., Hitchon, W.N.G., Callen, J.D. and Shohet, J.L.</td>
+	<td>Flux Coordinates and Magnetic Field Structure: A Guide to a Fundamental Tool of Plasma Theory</td>
+	<td>1991</td>
+	<td>, pp. 228&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8F477E7E2A8BFD6AFE9DD7DD6899CC8E">URL</a>&nbsp;</td>
+</tr>
+<tr id="Diamond2015" class="entry">
+	<td>Diamond, P.H., Garbet, X., Ghendrih, P. and Sarazin, Y.</td>
+	<td>Rotation and Momentum Transport in Magnetized Plasmas</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.worldscientific.com/worldscibooks/10.1142/9458#t=aboutBook">URL</a>&nbsp;</td>
+</tr>
+<tr id="Diamond2009" class="entry">
+	<td>Diamond, P.H., Garbet, X., Ghendrith, P. and Sarazin, Y.</td>
+	<td>Relaxation Dynamics in Laboratory and Astrophysical Plasmas</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8e0c9212c9b74e9e0c750d996c30936e">URL</a>&nbsp;</td>
+</tr>
+<tr id="Diamond2010" class="entry">
+	<td>Diamond, P.H., Itoh, S.-I. and Itoh, K.</td>
+	<td>Modern Plasma Physics: Volume 1, Physical Kinetics of Turbulent Plasmas</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Dinklage2005" class="entry">
+	<td>Dinklage, A., Klinger, T., Marx, G. and Schweikhard, L.</td>
+	<td>Plasma Physics: Confinement, Transport and Collective Effects</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Diver2001" class="entry">
+	<td>Diver, D.A.</td>
+	<td>Plasma formulary for physics, technology, astrophysics</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Dnestrovskii1986" class="entry">
+	<td>Dnestrovskii, Y.N. and Kostomarov, D.P.</td>
+	<td>Numerical Simulation of Plasma</td>
+	<td>1986</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=643fe1b0c106b64d7b1549c9f97f68c4&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Dnestrovskij2015" class="entry">
+	<td>Dnestrovskij, Y.</td>
+	<td>Self-Organization of Hot Plasmas: The Canonical Profile Transport Model</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=322b8ac26e09324f2c8e21f7639a8248">URL</a>&nbsp;</td>
+</tr>
+<tr id="Dolan1981" class="entry">
+	<td>Dolan, T.J.</td>
+	<td>Fusion research: principles, experiments and technology</td>
+	<td>1981</td>
+	<td>, pp. 942&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=3B4A20FFCF4F0E279796D51158ABAF7D">URL</a>&nbsp;</td>
+</tr>
+<tr id="Dorman2006" class="entry">
+	<td>Dorman, L.I.</td>
+	<td>Cosmic Ray Interactions, Propagation, and Acceleration in Space Plasmas</td>
+	<td>2006</td>
+	<td>, pp. 847&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=658209257a31eb2d499034224dff890f">URL</a>&nbsp;</td>
+</tr>
+<tr id="Drake2006" class="entry">
+	<td>Drake, R.P.</td>
+	<td>High-Energy-Density Physics: Fundamentals, Inertial Fusion, and Experimental Astrophysics (Shock Wave and High Pressure Phenomena)</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Drobot1991" class="entry">
+	<td>Drobot, A.T.</td>
+	<td>Computer Applications in Plasma Science and Engineering</td>
+	<td>1991</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://link.springer.com/book/10.1007/978-1-4612-3092-2/page/1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Duffy2003" class="entry">
+	<td>Duffy, D.G.</td>
+	<td>Advanced Engineering Mathematics with MATLAB</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8C71AE195772AD9F4EB6869CE8E7A659">URL</a>&nbsp;</td>
+</tr>
+<tr id="Durran1998" class="entry">
+	<td>Durran, D.R.</td>
+	<td>Numerical Methods for Wave Equations in Geophysical Fluid Dynamics</td>
+	<td>1998</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Eliezer2002" class="entry">
+	<td>Eliezer, S.</td>
+	<td>The Interaction of High Power Lasers with Plasmas</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8CA51BBA319CB219DCDD557638A1305E">URL</a>&nbsp;</td>
+</tr>
+<tr id="Eliezer1986" class="entry">
+	<td>Eliezer, S.</td>
+	<td>Fundamentals of Equations of State</td>
+	<td>1986</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Eliezer2009" class="entry">
+	<td>Eliezer, S. and Mima, K.</td>
+	<td>Applications of laser-plasma interactions</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=0CC56D6EF8556A7AEBDC32267D847E34">URL</a>&nbsp;</td>
+</tr>
+<tr id="Eliezer2001" class="entry">
+	<td>Eliezer, Y. and Eliezer, S.</td>
+	<td>The Fourth State Of Matter An Introduction To Plasma Science</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Elskens2003" class="entry">
+	<td>Elskens, Y. and Escande, D.</td>
+	<td>Microscopic Dynamics of Plasmas and Chaos</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Enns2001" class="entry">
+	<td>Enns, R.H. and McGuire, G.C.</td>
+	<td>Nonlinear Physics with Mathematica for Scientists and Engineers</td>
+	<td>2001</td>
+	<td>, pp. 726&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="陈1980" class="entry">
+	<td>弗朗西斯. F. 陈</td>
+	<td>等离子体物理学导论</td>
+	<td>1980</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Fehske2010" class="entry">
+	<td>Fehske, H. and Schneider, R.</td>
+	<td>Computational Many-Particle Physics</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Ferziger2002" class="entry">
+	<td>Ferziger, J.H. and Peric, M.</td>
+	<td>Computational Methods for Fluid Dynamics</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=CAE37E976CA795F84B598775CD63B6F9">URL</a>&nbsp;</td>
+</tr>
+<tr id="Fitzpatrick2014" class="entry">
+	<td>Fitzpatrick, R.</td>
+	<td>Plasma Physics: An Introduction</td>
+	<td>2014</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=4e2f0188548ba56ae24ef3fd00cbe683">URL</a>&nbsp;</td>
+</tr>
+<tr id="Fitzpatrick2008" class="entry">
+	<td>Fitzpatrick, R.</td>
+	<td>The Physics of Plasmas</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://farside.ph.utexas.edu/teaching/plasma/">URL</a>&nbsp;</td>
+</tr>
+<tr id="Fitzpatrick2006" class="entry">
+	<td>Fitzpatrick, R.</td>
+	<td>Computational Physics: An introductory course</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://farside.ph.utexas.edu/teaching/329/lectures/lectures.html">URL</a>&nbsp;</td>
+</tr>
+<tr id="Fortov2006" class="entry">
+	<td>Fortov, V., Iakubov, I. and Khrapak, A.</td>
+	<td>Physics of Strongly Coupled Plasma</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Fowler1997" class="entry">
+	<td>Fowler, T.K.</td>
+	<td>The Fusion Quest</td>
+	<td>1997</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Freidberg2007" class="entry">
+	<td>Freidberg, J.</td>
+	<td>Plasma Physics and Fusion Energy</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Freidberg1987" class="entry">
+	<td>Freidberg, J.P.</td>
+	<td>Ideal Magnetohydrodynamics</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Fridman2008" class="entry">
+	<td>Fridman, A.</td>
+	<td>Plasma Chemistry</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Fridman2004" class="entry">
+	<td>Fridman, A.A. and Kennedy, L.A.</td>
+	<td>Plasma Physics and Engineering</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Fried1961" class="entry">
+	<td>Fried, B.D. and Conte, S.D.</td>
+	<td>The Plasma Dispersion Function—THE HILBERT TRANSFORM OF THE GAUSSIAN</td>
+	<td>1961</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=79ae1e53dc2269af6219214f1352f0e1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Frisch1995" class="entry">
+	<td>Frisch, U.</td>
+	<td>Turbulence: The Legacy of A. N. Kolmogorov</td>
+	<td>1995</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=B912EEE00DE2104F9AF1AE105A895430">URL</a>&nbsp;</td>
+</tr>
+<tr id="Froman2005" class="entry">
+	<td>Froman, N. and Froman, P.O.</td>
+	<td>Physical Problems Solved by the Phase-Integral Method</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=CEDFB6DFC00C7DE38EF1384BF40D8796">URL</a>&nbsp;</td>
+</tr>
+<tr id="Fujimoto2008" class="entry">
+	<td>Fujimoto, T. and Iwamae, A.</td>
+	<td>Plasma Polarization Spectroscopy</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Fundamenski2009" class="entry">
+	<td>Fundamenski, W.</td>
+	<td>Power Exhaust in Fusion Plasmas</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Fussmann2009" class="entry">
+	<td>Fussmann, G.</td>
+	<td>Particle Transport in Magnetically Confined Plasmas</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.co.uk/Particle-Transport-Magnetically-Confined-Plasmas/dp/0750305746">URL</a>&nbsp;</td>
+</tr>
+<tr id="Fussmann2001" class="entry">
+	<td>Fussmann, G.</td>
+	<td>Einfuehrung in die Plasmaphysik</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=83B54C35721DB02D85A55138D76E8619">URL</a>&nbsp;</td>
+</tr>
+<tr id="Galeev1975" class="entry">
+	<td>Galeev, A.A. and Sagdeev, R.Z.</td>
+	<td>Theory of Neoclassical Diffusion</td>
+	<td>1975</td>
+	<td><br/>Vol. Reviews of Plasma Physics Vol. 7&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Galeev1984" class="entry">
+	<td>Galeev, A.A. and Sudan, R.N.</td>
+	<td>Basic Plasma Physics, Vol 2</td>
+	<td>1984</td>
+	<td>, pp. 564&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Galeev1983" class="entry">
+	<td>Galeev, A.A. and Sudan, R.N.</td>
+	<td>Basic Plasma Physics, Vol 1</td>
+	<td>1983</td>
+	<td>, pp. 850&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Garbet2008" class="entry">
+	<td>Garbet, X., Sauter, O. and Sindoni, E.</td>
+	<td>Theory of fusion plasmas: joint Varenna-Lausanne International Workshop : Varenna, Italy, 25-29 August 2008</td>
+	<td>2008</td>
+	<td>, pp. 377&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://books.google.com.hk/books?id=3QVBAQAAIAAJ&dq=TOKAMAK&hl=zh-CN&source=gbs_similarbooks">URL</a>&nbsp;</td>
+</tr>
+<tr id="Garg2008" class="entry">
+	<td>Garg, R.</td>
+	<td>Analytical and Computational Methods in Electromagnetics</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=4947E427B216F7C6875A123423E1351C">URL</a>&nbsp;</td>
+</tr>
+<tr id="Gary1993" class="entry">
+	<td>Gary, S.P.</td>
+	<td>Theory of Space Plasma Microinstabilities</td>
+	<td>1993</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="George2010" class="entry">
+	<td>George, V.K.</td>
+	<td>Kinetic Theory of the Inner Magnetospheric Plasma</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Gerya2010" class="entry">
+	<td>Gerya, T.</td>
+	<td>Introduction to Numerical Geodynamic Modelling</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.cambridge.org/gb/knowledge/isbn/item2709959/?site_locale=en_GB">URL</a>&nbsp;</td>
+</tr>
+<tr id="Ginzburg1990" class="entry">
+	<td>Ginzburg, V.L. and Tsytovich, V.N.</td>
+	<td>Transition Radiation and Transition Scattering</td>
+	<td>1990</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Transition-Radiation-Scattering-Plasma-Physics/dp/0852740034/ref=sr_1_1?s=books&ie=UTF8&qid=1325498865&sr=1-1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Giordano2005" class="entry">
+	<td>Giordano, N.J. and Nakanishi, H.</td>
+	<td>Computational Physics</td>
+	<td>2005</td>
+	<td>, pp. 279&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=286d624ac646d3dcfd39ef905a61d3af&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Girka2014" class="entry">
+	<td>Girka, V., Girka, I. and Thumm, M.</td>
+	<td>Surface Flute Waves in Plasmas: Theory and Applications</td>
+	<td>2014</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=17e4387007b4b3cf7eb90d59f838c653">URL</a>&nbsp;</td>
+</tr>
+<tr id="Glassey1987" class="entry">
+	<td>Glassey, R.T.</td>
+	<td>The Cauchy Problem in Kinetic Theory</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Goedbloed2010" class="entry">
+	<td>Goedbloed, J., Keppens, R. and Poedts, S.</td>
+	<td>Advanced Magnetohydrodynamics With Applications to Laboratory and Astrophysical Plasmas</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Goedbloed2004" class="entry">
+	<td>Goedbloed, J. and Poedts, S.</td>
+	<td>Principles of Magnetohydrodynamics: With Applications to Laboratory and Astrophysical Plasmas</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Goldston1995" class="entry">
+	<td>Goldston, R.J. and Rutherford, P.H.</td>
+	<td>Introduction to Plasma Physics</td>
+	<td>1995</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Griem2005" class="entry">
+	<td>Griem, H.R.</td>
+	<td>Principles of Plasma Spectroscopy</td>
+	<td>2005</td>
+	<td>, pp. 388&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Grigoriev2005" class="entry">
+	<td>Grigoriev, Y., Ibragimov, N., Kovalev, V. and Meleshko, S.</td>
+	<td>Symmetries of Integro-Differential Equations With Applications in Mechanics and Plasma Physics</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Gruber1985" class="entry">
+	<td>Gruber, D.R. and Rappaz, D.J.</td>
+	<td>Finite Element Methods in Linear Ideal Magnetohydrodynamics</td>
+	<td>1985</td>
+	<td>, pp. 180&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=ad9f4601e036a01e6d4d3c1890509cc5">URL</a>&nbsp;</td>
+</tr>
+<tr id="Guest2009" class="entry">
+	<td>Guest, G.</td>
+	<td>Electron Cyclotron Heating of Plasmas</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Gurnett2005" class="entry">
+	<td>Gurnett, D.A. and Bhattacharjee, A.</td>
+	<td>Introduction to plasma physics: with space and laboratory applications</td>
+	<td>2005</td>
+	<td>, pp. 452&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=855835a8975d1fa26a8fd3030e90f00b">URL</a>&nbsp;</td>
+</tr>
+<tr id="Haar1977" class="entry">
+	<td>ter Haar, D.</td>
+	<td>Plasma Physics: Nonlinear Theory and Experiments</td>
+	<td>1977</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=046358693e3cd90fc9597f9be95f87cb">URL</a>&nbsp;</td>
+</tr>
+<tr id="Hammett2006" class="entry">
+	<td>Hammett, G.</td>
+	<td>A Physics Formulary</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>booklet</td>
+	<td><a href="http://w3.pppl.gov/˜hammett/hpf/hpf.pdf">URL</a>&nbsp;</td>
+</tr>
+<tr id="Harman2000" class="entry">
+	<td>Harman, T.L.</td>
+	<td>Advanced engineering mathematics with Matlab</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8CF119229AFD72F021C37C777A818456">URL</a>&nbsp;</td>
+</tr>
+<tr id="Harms2000" class="entry">
+	<td>Harms, A.A., Schoepf, K.F. and Kingdon, G.H.M.D.R.</td>
+	<td>Principles of Fusion Energy</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Harris1968" class="entry">
+	<td>Harris, E.G.</td>
+	<td>Plasma Instabilities</td>
+	<td>1968</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hasegawa1975" class="entry">
+	<td>Hasegawa, A.</td>
+	<td>Plasma Instabilities and Nonlinear Effects</td>
+	<td>1975</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hasegawa1989" class="entry">
+	<td>Hasegawa, A. and Sato, T.</td>
+	<td>Space Plasma Physics: One Stationary Processes</td>
+	<td>1989</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hasegawa1982" class="entry">
+	<td>Hasegawa, A. and Uberoi, C.</td>
+	<td>The Alfven wave</td>
+	<td>1982</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hazeltine1992" class="entry">
+	<td>Hazeltine, R.D. and Meiss, J.D.</td>
+	<td>Plasma Confinement</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hazeltine2004" class="entry">
+	<td>Hazeltine, R.D. and Waelbroeck, F.L.</td>
+	<td>The Framework of Plasma Physics</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Helander2001" class="entry">
+	<td>Helander, P. and Sigmar, D.</td>
+	<td>Collisional Transport in Magnetized Plasmas</td>
+	<td>2001</td>
+	<td>, pp. 292&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hockney1988" class="entry">
+	<td>Hockney and Eastwood</td>
+	<td>Computer Simulation using Particles</td>
+	<td>1988</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hoffman2001" class="entry">
+	<td>Hoffman, J.D.</td>
+	<td>Numerical Methods for Engineers and Scientists</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=77AC693E95BEE6DD565B115CB09B454D">URL</a>&nbsp;</td>
+</tr>
+<tr id="Holden2012" class="entry">
+	<td>Holden, H. and Karlsen, K.H.</td>
+	<td>Nonlinear Partial Differential Equations: The Abel Symposium 2010 (Abel Symposia)</td>
+	<td>2012</td>
+	<td>, pp. 377&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=77889e6c756a3b6e094594cc5e4ff409">URL</a>&nbsp;</td>
+</tr>
+<tr id="Holt1965" class="entry">
+	<td>Holt, E. and Haskell, R.</td>
+	<td>Foundations of Plasma</td>
+	<td>1965</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hora1979" class="entry">
+	<td>Hora, H.</td>
+	<td>Nonlinear Plasma Dynamics at Laser Irradiation</td>
+	<td>1979</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Horton2012" class="entry">
+	<td>Horton, W.</td>
+	<td>Turbulent Transport in Magnetized Plasmas</td>
+	<td>2012</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.worldscientific.com/worldscibooks/10.1142/8362">URL</a>&nbsp;</td>
+</tr>
+<tr id="Horton1996" class="entry">
+	<td>Horton, W. and Ichikawa, Y.H.</td>
+	<td>Chaos and Structures in Nonlinear Plasmas</td>
+	<td>1996</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hoshino2005" class="entry">
+	<td>Hoshino, M., Omura, Y. and Lanzerotti, L.J.</td>
+	<td>Frontiers in Magnetospheric Plasma Physics, Volume 16 (Cospar)</td>
+	<td>2005</td>
+	<td>, pp. 322&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=2039D90CFF6644C7C872ECF1DBCDD0AD">URL</a>&nbsp;</td>
+</tr>
+<tr id="Huba2009" class="entry">
+	<td>Huba, J.</td>
+	<td>NRL PLASMA FORMULARY</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>booklet</td>
+	<td><a href="http://wwwppd.nrl.navy.mil/nrlformulary/">URL</a>&nbsp;</td>
+</tr>
+<tr id="Humphries1990" class="entry">
+	<td>Humphries, S.</td>
+	<td>Charged Particle Beams</td>
+	<td>1990</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Hutchinson2005" class="entry">
+	<td>Hutchinson, I.H.</td>
+	<td>Principles of Plasma Diagnostics</td>
+	<td>2005</td>
+	<td>, pp. 459&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Ichikawa1989" class="entry">
+	<td>Ichikawa, Y.H., Kamimura, T. and Kenkyūjo, N.D.P.</td>
+	<td>Nagoya lectures in plasma physics and controlled fusion</td>
+	<td>1989</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=9c6ebec02143f3b2fce003d3701dcd62">URL</a>&nbsp;</td>
+</tr>
+<tr id="Ichimaru2004" class="entry">
+	<td>Ichimaru, S.</td>
+	<td>Statistical Plasma Physics, Volume II: Condensed Plasmas</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Ichimaru1992" class="entry">
+	<td>Ichimaru, S.</td>
+	<td>Statistical Plasma Physics, Vol. 1. Basic Principles</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Ichimaru1973" class="entry">
+	<td>Ichimaru, S.</td>
+	<td>Basic Principles Of Plasma Physics: A Statistical Approach</td>
+	<td>1973</td>
+	<td>, pp. 324&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Inan2011" class="entry">
+	<td>Inan, U.S. and Gokowski, M.</td>
+	<td>Principles of Plasma Physics for Engineers and Scientists</td>
+	<td>2011</td>
+	<td>, pp. 284&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Principles-Plasma-Physics-Engineers-Scientists/dp/0521193729/ref=sr_1_8?ie=UTF8&qid=1318467494&sr=8-8">URL</a>&nbsp;</td>
+</tr>
+<tr id="Infeld1990" class="entry">
+	<td>Infeld, E. and Rowlands, G.</td>
+	<td>Nonlinear Waves, Solitons and Chaos</td>
+	<td>1990</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Ishimaru1990" class="entry">
+	<td>Ishimaru, A.</td>
+	<td>Electromagnetic wave propagation, radiation, and scattering</td>
+	<td>1990</td>
+	<td>, pp. 652&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=2CDF26BFF8BBD64C2A24B8B43B2873F4">URL</a>&nbsp;</td>
+</tr>
+<tr id="Itoh1999" class="entry">
+	<td>Itoh, K., Itoh, S.I. and Fukuyama, A.</td>
+	<td>Transport and Structural Formation in Plasmas</td>
+	<td>1999</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Jackson1992" class="entry">
+	<td>Jackson, E.A.</td>
+	<td>Perspectives of Nonlinear Dynamics: Volume 2</td>
+	<td>1992</td>
+	<td>, pp. 651&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=16939962507299240519DF21B06531ED">URL</a>&nbsp;</td>
+</tr>
+<tr id="Jackson1989" class="entry">
+	<td>Jackson, E.A.</td>
+	<td>Perspectives of Nonlinear Dynamics: Volume 1</td>
+	<td>1989</td>
+	<td>, pp. 516&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=1D0A1DE0B40DAB285CC9CB4E386F6D29">URL</a>&nbsp;</td>
+</tr>
+<tr id="Jardin2010" class="entry">
+	<td>Jardin, S.</td>
+	<td>Computational Methods in Plasma Physics</td>
+	<td>2010</td>
+	<td>, pp. 344&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Jaroszynski2009" class="entry">
+	<td>Jaroszynski, D.A., Bingham, R. and Cairns, R.</td>
+	<td>Laser-Plasma Interactions</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=F0C19D150FD2D00FFCE2F80FDE410623">URL</a>&nbsp;</td>
+</tr>
+<tr id="Jeans1967" class="entry">
+	<td>Jeans, J.</td>
+	<td>An Introduction to the Kinetic Theory of Gases</td>
+	<td>1967</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Jeffrey1964" class="entry">
+	<td>Jeffrey, A. and Taniuti, T.</td>
+	<td>Non-linear wave propagation, with applications to physics and magnetohydrodynamics</td>
+	<td>1964</td>
+	<td>, pp. 380&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=60DC13F3360D2BF70A4CF20E30C590B2">URL</a>&nbsp;</td>
+</tr>
+<tr id="Jones1994" class="entry">
+	<td>Jones, D.S.J.</td>
+	<td>Methods in Electromagnetic Wave Propagation</td>
+	<td>1994</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=561EB9E57CA627CB7F005DCBD9E53F60">URL</a>&nbsp;</td>
+</tr>
+<tr id="Jones1981" class="entry">
+	<td>Jones, W.B. and Thron, W.J.</td>
+	<td>Continued fractions. Analytic theory and applications</td>
+	<td>1981</td>
+	<td>, pp. 457&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=69EE320401498CCE28D806E3480FE99C">URL</a>&nbsp;</td>
+</tr>
+<tr id="Jones1985" class="entry">
+	<td>Jones, W.D., Doucet, H.J. and Buzzi, J.M.</td>
+	<td>An Introduction to the Linear Theories and Methods of Electrostatic Waves in Plasmas</td>
+	<td>1985</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Kaczorek2007" class="entry">
+	<td>Kaczorek, T.</td>
+	<td>Polynomial And Rational Matrices - Applns In Dynamical Systems Theory</td>
+	<td>2007</td>
+	<td>, pp. 513&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=504BDE77822A7C52D6172EAA34778FDE">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kadomtsev1992" class="entry">
+	<td>Kadomtsev, B.</td>
+	<td>Tokamak Plasma: a Complex Physcis System</td>
+	<td>1992</td>
+	<td>, pp. 208&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Tokamak-Plasma-Complex-Physical-Physics/dp/0750302348">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kadomtsev2001" class="entry">
+	<td>Kadomtsev, B.B.</td>
+	<td>Reviews of Plasma Physics 22</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=e96f02f104fb01258e62be982a2ac27b&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kadomtsev1996" class="entry">
+	<td>Kadomtsev, B.B.</td>
+	<td>Reviews of plasma physics, Vol.19</td>
+	<td>1996</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=56e8a31714b14ceca45df685bed1b700&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kadomtsev1981" class="entry">
+	<td>Kadomtsev, B.B.</td>
+	<td>Plasma Physics</td>
+	<td>1981</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Kadomtsev1966" class="entry">
+	<td>Kadomtsev, B.B.</td>
+	<td>Hydromagnetic stability of a plasma</td>
+	<td>1966</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://matdev-calit2.ucsd.edu/students/courses/winter2010/physics218b/SuppRead%20Kadomtsev.pdf">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kadomtsev1965" class="entry">
+	<td>Kadomtsev, B.B.</td>
+	<td>Plasma turbulence</td>
+	<td>1965</td>
+	<td>, pp. 149&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Kadomtsev1970" class="entry">
+	<td>Kadomtsev, B.B. and Pogutse, O.P.</td>
+	<td>Turbulence in Toroidal System</td>
+	<td>1970</td>
+	<td><br/>Vol. Review of Plasma Physics Vol.5&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://plasma.kaist.ac.kr/confinement/">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kamide2007" class="entry">
+	<td>Kamide, Y. and Chian, A.C.-L.</td>
+	<td>Handbook of the Solar-Terrestrial Environment</td>
+	<td>2007</td>
+	<td>, pp. 539&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=E53EF78C28E5CCDF58CE24F72931015E">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kampen1967" class="entry">
+	<td>Kampen, N.G.V. and Felderhof, B.U.</td>
+	<td>Theoretical Methods in Plasma Physics</td>
+	<td>1967</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Kampen2007" class="entry">
+	<td>Kampen, N.V.</td>
+	<td>Stochastic Processes in Physics and Chemistry</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=3ef960bea20b130611c99d1de8b83a9e">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kardaun2005" class="entry">
+	<td>Kardaun, O.J.</td>
+	<td>Classical Methods of Statistics: With Applications in Fusion-Oriented Plasma Physics</td>
+	<td>2005</td>
+	<td>, pp. 396&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Kevrekidis2009" class="entry">
+	<td>Kevrekidis, P.G.</td>
+	<td>The Discrete Nonlinear Schrödinger Equation: Mathematical Analysis, Numerical Computations and Physical Perspectives</td>
+	<td>2009</td>
+	<td>, pp. 415&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=D860E80A5FC8BA10975D10D9F78F65FE">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kielhofer2012" class="entry">
+	<td>Kielhofer, H.</td>
+	<td>Bifurcation Theory: An Introduction with Applications to Partial Differential Equations</td>
+	<td>2012</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=E176D2A0E7C1D024ED396BF4F0493502">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kikuchi2011" class="entry">
+	<td>Kikuchi, M.</td>
+	<td>Frontiers in Fusion Research: Physics and Fusion</td>
+	<td>2011</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=d0aa77dbd604f27bd4e45b3468476ae4">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kikuchi2015" class="entry">
+	<td>Kikuchi, M. and Azumi, M.</td>
+	<td>Frontiers in Fusion Research II: Introduction to Modern Tokamak Physics</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=ffa113514e1540f186c8781c86a54ae5">URL</a>&nbsp;</td>
+</tr>
+<tr id="KIKUCHI2012" class="entry">
+	<td>KIKUCHI, M., LACKNER, K. and TRAN, M.Q.</td>
+	<td>Fusion Physics</td>
+	<td>2012</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www-pub.iaea.org/books/IAEABooks/8879/Fusion-Physics">URL</a>&nbsp;</td>
+</tr>
+<tr id="Killeen1986" class="entry">
+	<td>Killeen, J., Kerbel, G.D., McCoy, M.G. and Mirin, A.A.</td>
+	<td>Computational Methods for Kinetic Models of Magnetically Confined Plasmas</td>
+	<td>1986</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://link.springer.com/book/10.1007/978-3-642-85954-0/page/1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kirk1994" class="entry">
+	<td>Kirk, J., Melrose, D. and Priest, E.</td>
+	<td>Plasma Astrophysics: Saas-Fee Advanced Course 24. Lecture Notes 1994. Swiss Society for Astrophysics and Astronomy</td>
+	<td>1994</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Kirsch2011" class="entry">
+	<td>Kirsch, A.</td>
+	<td>An introduction to the mathematical theory of inverse problems</td>
+	<td>2011</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=1B0EAAB497F2209E64592A07DB4E1C86">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kishk2011" class="entry">
+	<td>Kishk, A.</td>
+	<td>Electromagnetic Waves Propagation in Complex Matter</td>
+	<td>2011</td>
+	<td>, pp. 306&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=0FBCF55409E719433DE1A687AF406B76">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kivelson1995" class="entry">
+	<td>Kivelson, M.G. and Russell, C.T.</td>
+	<td>Introduction to space physics</td>
+	<td>1995</td>
+	<td>, pp. 505&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=1DFC6EEE04A63189E56E768AA4A754E4">URL</a>&nbsp;</td>
+</tr>
+<tr id="Klages2008" class="entry">
+	<td>Klages, R., Radons, G. and Sokolov, I.M.</td>
+	<td>Anomalous Transport: Foundations and Applications</td>
+	<td>2008</td>
+	<td>, pp. 611&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=3BDE920FC6A00DFB46C9917BFFA2B415">URL</a>&nbsp;</td>
+</tr>
+<tr id="Klimontovich1967" class="entry">
+	<td>Klimontovich, Y.L.</td>
+	<td>The statistical theory of Non-equilibrium processes in a plasma</td>
+	<td>1967</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=15a9a0eba23fbdccc6de7ca2d7cc0269">URL</a>&nbsp;</td>
+</tr>
+<tr id="Knupp1993" class="entry">
+	<td>Knupp, P. and Steinberg, S.</td>
+	<td>Fundamentals of Grid Generation</td>
+	<td>1993</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Kolesnichenko1993" class="entry">
+	<td>Kolesnichenko, Y.I., Parail, V.V. and Pereverzev, G.V.</td>
+	<td>Reviews of Plasma Physics 17</td>
+	<td>1993</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=385cb6a57124d67adbae6a53337f75b4&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kong1986" class="entry">
+	<td>Kong, J.A.</td>
+	<td>Electromagnetic Wave Theory</td>
+	<td>1986</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Konies2004" class="entry">
+	<td>Konies, A. and Krieger, K.</td>
+	<td>Summer University for Plasma Physics, September 27-October 1,2004<p>Garching/Munich, Germany</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Kono2010" class="entry">
+	<td>Kono, M. and Skoric, M.</td>
+	<td>Nonlinear Physics of Plasmas</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://dx.doi.org/10.1007/978-3-642-14694-7">DOI</a> <a href="http://www.springer.com/physics/atomic,+molecular,+optical+%26+plasma+physics/book/978-3-642-14693-0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Krall1973" class="entry">
+	<td>Krall, N. and Trivelpiece, A.</td>
+	<td>Principles of Plasma Physics</td>
+	<td>1973</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Krasovitskii2008" class="entry">
+	<td>Krasovitskii, V.B.</td>
+	<td>Instabilities of a Relativistic Electron Beam in Plasma</td>
+	<td>2008</td>
+	<td><br/>Vol. Volume 260&nbsp;</td>
+	<td>book</td>
+	<td><a href="https://www.novapublishers.com/catalog/product_info.php?products_id=5217">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kravanja2000" class="entry">
+	<td>Kravanja, P. and Barel, M.V.</td>
+	<td>Computing the Zeros of Analytic Functions</td>
+	<td>2000</td>
+	<td>, pp. 116&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8962A3A40BF268DE89E42AB0A8A472F9">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kroese2011" class="entry">
+	<td>Kroese, D.P., Taimre, T. and Botev, Z.I.</td>
+	<td>Handbook of Monte Carlo Methods</td>
+	<td>2011</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Krommes2008" class="entry">
+	<td>Krommes, J.A.</td>
+	<td>Conceptual Foundations of Plasma Kinetic Theory, Turbulence, and Transport Volumes I and II</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="ftp://ftp.pppl.gov/pub/krommes/AST-559/notes.pdf">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kruer2003" class="entry">
+	<td>Kruer, W.</td>
+	<td>The physics of laser plasma interactions</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Krylov2006" class="entry">
+	<td>Krylov, (A.V.I. and (Translator), A.H.S.</td>
+	<td>Approximate Calculation of Integrals (Dover Books on Mathematics)</td>
+	<td>2006</td>
+	<td>, pp. 368&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=2781B00BC138079DCDA70E6B0E81F995">URL</a>&nbsp;</td>
+</tr>
+<tr id="Kulsrud2004" class="entry">
+	<td>Kulsrud, R.M.</td>
+	<td>Plasma Physics for Astrophysics</td>
+	<td>2004</td>
+	<td>, pp. 456&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Plasma-Physics-Astrophysics-Princeton/dp/0691120730/ref=pd_sim_b12">URL</a>&nbsp;</td>
+</tr>
+<tr id="Lam2003" class="entry">
+	<td>Lam, L.</td>
+	<td>Introduction to Nonlinear Physics</td>
+	<td>2003</td>
+	<td>, pp. 417&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8142424E9649CBF8FF4247FB09440143">URL</a>&nbsp;</td>
+</tr>
+<tr id="Lapeyre2003" class="entry">
+	<td>Lapeyre, B., Pardoux, E. and Sentis, R.</td>
+	<td>Introduction to Monte-Carlo Methods for Transport and Diffusion Equations</td>
+	<td>2003</td>
+	<td>, pp. 176&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Leach1999" class="entry">
+	<td>Leach, P., Bouquet, S., Rouet, J.-L. and Fijalkow, E.</td>
+	<td>Dynamical Systems, Plasmas and Gravitation: Selected Papers from a Conference Held in Orleans la Source, France, 22-24 June 1997</td>
+	<td>1999</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Lemaire1998" class="entry">
+	<td>Lemaire, J.F., Gringauz, K.I. and D. L. Carpenter, V.B.</td>
+	<td>The Earth's Plasmasphere</td>
+	<td>1998</td>
+	<td>, pp. 373&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=4ff44d0421599c58d5923e69a3f1c9fb">URL</a>&nbsp;</td>
+</tr>
+<tr id="Lequeux2004" class="entry">
+	<td>Lequeux, J., Falgarone, E. and Ryter, C.</td>
+	<td>The Interstellar Medium</td>
+	<td>2004</td>
+	<td>, pp. 437&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="LeVeque2005" class="entry">
+	<td>LeVeque, R.J.</td>
+	<td>Finite Difference Methods for Differential Equations</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=CDFA7467469DFDE4ED525F5047E63768">URL</a>&nbsp;</td>
+</tr>
+<tr id="Leveque2002" class="entry">
+	<td>Leveque, R.J.</td>
+	<td>Finite Volume Methods for Hyperbolic Problems</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://en.bookfi.org/book/1219093">URL</a>&nbsp;</td>
+</tr>
+<tr id="Leveque1992" class="entry">
+	<td>Leveque, R.J.</td>
+	<td>Numerical Methods for Conservation Laws</td>
+	<td>1992</td>
+	<td>, pp. 228&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=72B74E16F6A4497F26DB4CBCBE67C999">URL</a>&nbsp;</td>
+</tr>
+<tr id="LeVeque1998" class="entry">
+	<td>LeVeque, R.J., Mihalas, D. and E.A. Dorfi Ewald Müller, O.S.A.G.</td>
+	<td>Computational Methods for Astrophysical Fluid Flow</td>
+	<td>1998</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=419DE51FF6E8D9C599AF7B9942D68EC9">URL</a>&nbsp;</td>
+</tr>
+<tr id="Li2008" class="entry">
+	<td>Li, J. and Chen, Y.-T.</td>
+	<td>Computational Partial Differential Equations Using MATLAB</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.crcpress.com/product/isbn/9781420089042">URL</a>&nbsp;</td>
+</tr>
+<tr id="Li2004" class="entry">
+	<td>Li, S. and Liu, W.K.</td>
+	<td>Meshfree Particle Methods</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Liberman1999" class="entry">
+	<td>Liberman, M.A., Groot, J.S.D., Toor, A. and Spielman, R.B.</td>
+	<td>Physics of high-density_Z-pinch_plasmas-Springer()</td>
+	<td>1999</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Liberman1986" class="entry">
+	<td>Liberman, M.A. and Velikovich, A.L.</td>
+	<td>Physics of Shock Waves in Gases and Plasmas</td>
+	<td>1986</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=45051f228b60bbeed40888c6455548d6">URL</a>&nbsp;</td>
+</tr>
+<tr id="Lichnerowicz2010" class="entry">
+	<td>Lichnerowicz, A.</td>
+	<td>Magnetohydrodynamics: Waves and Shock Waves in Curved Space-Time</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Lichnerowicz1994" class="entry">
+	<td>Lichnerowicz, A.</td>
+	<td>Magnetohydrodynamics waves and shock waves in curved space-time</td>
+	<td>1994</td>
+	<td>, pp. 292&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=10B3569692DD14405EFBD330EAD4B341">URL</a>&nbsp;</td>
+</tr>
+<tr id="Lichnerowicz1967" class="entry">
+	<td>Lichnerowicz, A.</td>
+	<td>Relativistic Hydrodynamics and Magnetohydrodynamics: Lectures on the existence of solutions</td>
+	<td>1967</td>
+	<td>, pp. 207&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=D4E9E8E8ECAFEDF321990C3CE605B020">URL</a>&nbsp;</td>
+</tr>
+<tr id="Lichtenberg1992" class="entry">
+	<td>Lichtenberg, A. and Lieberman, M.</td>
+	<td>Regular and Chaotic Dynamics</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Lieberman1994" class="entry">
+	<td>Lieberman, M.A. and Lichtenberg, A.J.</td>
+	<td>Principles of Plasma Discharges and Materials Processing</td>
+	<td>1994</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Lieberman2005" class="entry">
+	<td>Lieberman, M.A. and Lichtenberg, A.J.</td>
+	<td>Principles of Plasma Discharges and Materials Processing</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Lifschitz1989" class="entry">
+	<td>Lifschitz, A.</td>
+	<td>Magnetohydrodynamics and Spectral Theory</td>
+	<td>1989</td>
+	<td>, pp. 450&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=980C92F9D5F02EB9C7D1A4BADCD0433C">URL</a>&nbsp;</td>
+</tr>
+<tr id="Lipatov2002" class="entry">
+	<td>Lipatov, A.S.</td>
+	<td>The Hybrid Multiscale Simulation Technology: An Introduction with Application to Astrophysical and Laboratory Plasmas</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://link.springer.com/book/10.1007/978-3-662-05012-5/page/1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Liu2003" class="entry">
+	<td>Liu, G. and Liu, M.</td>
+	<td>Smoothed Particle Hydrodynamics, a meshfree and Particle Method</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Smoothed-Particle-Hydrodynamics-Meshfree-Method/dp/9812384561/ref=wl_it_dp_o_pC_S_nC?ie=UTF8&colid=T1CEQ99N2ZNF&coliid=I2Z6KD851XTN8G">URL</a>&nbsp;</td>
+</tr>
+<tr id="Livi2003" class="entry">
+	<td>Livi, R. and Vulpiani, A.</td>
+	<td>The Kolmogorov legacy in physics a century of turbulence and complexity</td>
+	<td>2003</td>
+	<td>, pp. 257&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=5AAB378764454F3A45070FA06C77A052">URL</a>&nbsp;</td>
+</tr>
+<tr id="Lorentz2011" class="entry">
+	<td>Lorentz, H.A.</td>
+	<td>The Theory of Electrons: And its Applications to the Phenomena of Light and Radiant Heat</td>
+	<td>2011</td>
+	<td>, pp. 352&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=E58CA4E380FEB32A03055F326FEBAF63">URL</a>&nbsp;</td>
+</tr>
+<tr id="Lorrain2010" class="entry">
+	<td>Lorrain, P., Lorrain, F. and Houle, S.</td>
+	<td>Magneto-Fluid Dynamics: Fundamentals and Case Studies of Natural Phenomena</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Lumley1970" class="entry">
+	<td>Lumley, J.L.</td>
+	<td>Stochastic Tools in Turbulence</td>
+	<td>1970</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://en.bookfi.org/book/653679">URL</a>&nbsp;</td>
+</tr>
+<tr id="Maier2010" class="entry">
+	<td>Maier, S.A.</td>
+	<td>Plasmonics Fundamentals and Applications</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Manheimer1977" class="entry">
+	<td>Manheimer, W.M.</td>
+	<td>An introduction to trapped-particle instability in tokamaks</td>
+	<td>1977</td>
+	<td>, pp. 96&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/An-introduction-trapped-particle-instability-tokamaks/dp/B002ZVOUU8">URL</a>&nbsp;</td>
+</tr>
+<tr id="Manheimer1989" class="entry">
+	<td>Manheimer, W.M. and Lashmore-Davies, C.N.</td>
+	<td>MHD and Microinstabilities in Confined Plasmas</td>
+	<td>1989</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Marton1971" class="entry">
+	<td>Marton, L. and Marton, C.</td>
+	<td>Plasma Physics (Methods of Experimental Physics Volume 9 Part B)</td>
+	<td>1971</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Massaglia2010" class="entry">
+	<td>Massaglia, S., Bodo, G., Mignone, A. and Rossi, P.</td>
+	<td>Jets from Young Stars III: Numerical MHD and Instabilities</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=28969CC97CDCE3351015B80818C3100D">URL</a>&nbsp;</td>
+</tr>
+<tr id="Mathews1970" class="entry">
+	<td>Mathews, J. and Walker, R.L.</td>
+	<td>Mathematical Methods of Physics</td>
+	<td>1970</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Matsumoto1993" class="entry">
+	<td>Matsumoto, H. and Omura, Y.</td>
+	<td>Computer Space Plasma Physics: Simulation Techniques and Software</td>
+	<td>1993</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.terrapub.co.jp/e-library/cspp/index.html">URL</a>&nbsp;</td>
+</tr>
+<tr id="Matsumoto1984" class="entry">
+	<td>Matsumoto, H. and Sato, T.</td>
+	<td>Computer Simulation of Space Plasmas</td>
+	<td>1984</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.terrapub.co.jp/e-library/cssp/">URL</a>&nbsp;</td>
+</tr>
+<tr id="McCracken2005" class="entry">
+	<td>McCracken, G.M. and Stott, P.</td>
+	<td>Fusion: The Energy of the Universe</td>
+	<td>2005</td>
+	<td>, pp. 224&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Melrose2010" class="entry">
+	<td>Melrose, D.B.</td>
+	<td>Quantum Plasmadynamics: Magnetised Plasmas (May 2010 draft version)</td>
+	<td>2010</td>
+	<td>, pp. 438&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=d1387cb1d80ccc1920d95e2349d34ebb">URL</a>&nbsp;</td>
+</tr>
+<tr id="Melrose2007" class="entry">
+	<td>Melrose, D.B.</td>
+	<td>Quantum Plasma dynamics: Unmagnetized Plasmas</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=3241BA59FFFBE77E2528439606AEB378">URL</a>&nbsp;</td>
+</tr>
+<tr id="Melrose1986" class="entry">
+	<td>Melrose, D.B.</td>
+	<td>Instabilities in Space and Laboratory Plasma</td>
+	<td>1986</td>
+	<td>, pp. 292&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=458de2e055e70a490a428c0cad342962">URL</a>&nbsp;</td>
+</tr>
+<tr id="Melrose1980" class="entry">
+	<td>Melrose, D.B.</td>
+	<td>Plasma Astrophysics Nonthermal Processes in Diffuse Magnetized Plasmas Volume1 The Emission, Absorption and Transfer of Waves in Plasmas</td>
+	<td>1980</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Melrose1991" class="entry">
+	<td>Melrose, D.B. and McPhedran, R.C.</td>
+	<td>Electromagnetic Processes in Dispersive Media</td>
+	<td>1991</td>
+	<td>, pp. 432&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=027E08ECD7463D18AC909B920A3DF1D1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Mendonca2001" class="entry">
+	<td>Mendonca, J.</td>
+	<td>Theory of photon acceleration</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Mercier2004" class="entry">
+	<td>Mercier, A.</td>
+	<td>Analytical and canonical formalism in physics</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=59915EFE6F98A6EFE613E766C8533570">URL</a>&nbsp;</td>
+</tr>
+<tr id="Mercier1989" class="entry">
+	<td>Mercier, B.</td>
+	<td>An Introduction to the Numerical Analysis of Spectral Methods</td>
+	<td>1989</td>
+	<td>, pp. 154&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=26EA107FC89BF5F2543D92DC8A9BB253">URL</a>&nbsp;</td>
+</tr>
+<tr id="Mercier1972" class="entry">
+	<td>Mercier, C. and Luc, H.</td>
+	<td>The MHD Approach to the Problem of Plasma Confinement in Closed Magnetic Configurations</td>
+	<td>1972</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=5f9b46bcbd66a6ff61c1d806b251a3bd">URL</a>&nbsp;</td>
+</tr>
+<tr id="Mikhailovskii1998" class="entry">
+	<td>Mikhailovskii, A.</td>
+	<td>Instabilities in a Confined Plasma</td>
+	<td>1998</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Mikhailovskii1992" class="entry">
+	<td>Mikhailovskii, A.B.</td>
+	<td>Electromagnetic Instabilities in an Inhomogeneous Plasma</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Mikhailovskii1974" class="entry">
+	<td>Mikhailovskii, A.B.</td>
+	<td>Instabilities of an Inhomogeneous Plasma (Theory of Plasma Instabilities vol 2)</td>
+	<td>1974</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Mima2000" class="entry">
+	<td>Mima, K.</td>
+	<td>High-Field Science</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=ec9f068d5ed22d3615823e2d388d4b31&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Miyamoto2004" class="entry">
+	<td>Miyamoto, K.</td>
+	<td>Plasma Physics and Controlled Nuclear Fusion</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Miyamoto2000" class="entry">
+	<td>Miyamoto, K.</td>
+	<td>Fundamentals of Plasma Physics and Controlled Fusion</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Moffatt1992" class="entry">
+	<td>Moffatt, H., Zaslavsky, G., Comte, P. and Tabor, M.</td>
+	<td>Topological Aspects of the Dynamics of Fluids and Plasmas</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Moffatt2001" class="entry">
+	<td>Moffatt, H.K.</td>
+	<td>An Introduction to the Geometry and Topology of Fluid Flows</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=e17c42ccdc1fbc7b7172d55166d71dcc&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Moiseev1999" class="entry">
+	<td>Moiseev, S.S., Oraevsky, V. and Pungin, V.</td>
+	<td>Nonlinear Instabilities in Plasmas and Hydrodynamics</td>
+	<td>1999</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=37710F8E5A5EBEE4AD7726E4D3EF1E8C">URL</a>&nbsp;</td>
+</tr>
+<tr id="Molokov2007" class="entry">
+	<td>Molokov, S., Moreau, R. and Moffatt, H.</td>
+	<td>Magnetohydrodynamics: historical evolution and trends</td>
+	<td>2007</td>
+	<td>, pp. 416&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=E21518F0741A83C3FF691906C56B6E7C">URL</a>&nbsp;</td>
+</tr>
+<tr id="Molvig2003" class="entry">
+	<td>Molvig, K.</td>
+	<td>Introduction to Plasma Physics I (Course Lecture Notes)</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Montgomery1964" class="entry">
+	<td>Montgomery</td>
+	<td>Plasma Kinetic Theory</td>
+	<td>1964</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Montgomery1972" class="entry">
+	<td>Montgomery, D.C.</td>
+	<td>Strongly magnetized classical plasma models</td>
+	<td>1972</td>
+	<td>, pp. 306&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Montgomery1971" class="entry">
+	<td>Montgomery, D.C.</td>
+	<td>Theory of the unmagnetized plasma</td>
+	<td>1971</td>
+	<td>, pp. 400&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://books.google.com.hk/books/about/Theory_of_the_unmagnetized_plasma.html?id=vgkvAAAAIAAJ">URL</a>&nbsp;</td>
+</tr>
+<tr id="Morozov1966" class="entry">
+	<td>Morozov, A.I. and Solovev, L.S.</td>
+	<td>The structure of magnetic fields</td>
+	<td>1966</td>
+	<td><br/>Vol. Reviews of Plasma Physics, Vol 2, p 1-101&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Morozov1966a" class="entry">
+	<td>Morozov, A.I. and Solovev, L.S.</td>
+	<td>Motion of charged particles in electromagnetic fields</td>
+	<td>1966</td>
+	<td><br/>Vol. Reviews of Plasma Physics, Vol 2, p 201-297&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Morozov1980" class="entry">
+	<td>Morozov, A.I. and Solov’ev, L.S.</td>
+	<td>Reviews of Plasma Physics 8</td>
+	<td>1980</td>
+	<td>, pp. 467&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=6204c4e9d1be303904cfdf93bfd67e56&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Muraoka2002" class="entry">
+	<td>Muraoka, K. and Maeda, M.</td>
+	<td>Laser Aided Diagnostics of Gases and Plasmas</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Narita2012" class="entry">
+	<td>Narita, Y.</td>
+	<td>Plasma Turbulence in the Solar System</td>
+	<td>2012</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.springer.com/astronomy/extraterrestrial+physics,+space+sciences/book/978-3-642-25666-0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Nash1987" class="entry">
+	<td>Nash, C. and Sen, S.</td>
+	<td>Topology and geometry for physicists</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://en.bookfi.org/book/444296">URL</a>&nbsp;</td>
+</tr>
+<tr id="Naujoks2010" class="entry">
+	<td>Naujoks, D.</td>
+	<td>Plasma-Material Interaction in Controlled Fusion</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Nazarenko2011" class="entry">
+	<td>Nazarenko, S.</td>
+	<td>Wave Turbulence</td>
+	<td>2011</td>
+	<td>, pp. 296&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=80149c120e8694feda9a18bd095fca76">URL</a>&nbsp;</td>
+</tr>
+<tr id="Nezlin1993" class="entry">
+	<td>Nezlin, M.</td>
+	<td>Physics of Intense Beams in Plasma</td>
+	<td>1993</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Physics-Intense-Beams-Plasmas-Plasma/dp/0750301864/ref=sr_1_1?s=books&ie=UTF8&qid=1325498731&sr=1-1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Nicholson1983" class="entry">
+	<td>Nicholson, D.R.</td>
+	<td>Introduction to Plasma Theory</td>
+	<td>1983</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Nikitin2002" class="entry">
+	<td>Nikitin, A., Boyko, V. and Popovych, R.</td>
+	<td>Symmetry in Nonlinear Mathematical Physics</td>
+	<td>2002</td>
+	<td><br/>Vol. 43, pp. 784&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=DE9B0D1FA8D48AB23FF7BC97B8A90879">URL</a>&nbsp;</td>
+</tr>
+<tr id="Nishikawa2000" class="entry">
+	<td>Nishikawa, K. and Wakatani, M.</td>
+	<td>Plasma Physics: Basic Theory with Fusion Applications</td>
+	<td>2000</td>
+	<td>, pp. 356&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=a87cafd6488ecd47cc3791e8acd96730">URL</a>&nbsp;</td>
+</tr>
+<tr id="Northrop1963" class="entry">
+	<td>Northrop, T.G.</td>
+	<td>Adiabatic Motion of Charged Particles</td>
+	<td>1963</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Odenbach2009" class="entry">
+	<td>Odenbach, S.</td>
+	<td>Colloidal Magnetic Fluids: Basics, Development and Application of Ferrofluids</td>
+	<td>2009</td>
+	<td>, pp. 438&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=B0852D197EED565D56D272B1064328CC">URL</a>&nbsp;</td>
+</tr>
+<tr id="Olver2010" class="entry">
+	<td>Olver, F.W.J., Lozier, D.W. and Ronald F. Boisvert, C.W.C.</td>
+	<td>NIST handbook of mathematical functions</td>
+	<td>2010</td>
+	<td>, pp. 967&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=7750A842DAAE07EBE30D597EB1352408">URL</a>&nbsp;</td>
+</tr>
+<tr id="Ong1979" class="entry">
+	<td>Ong, R.</td>
+	<td>Tokamak Physics, A Simple Introduction</td>
+	<td>1979</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Ortolani1993" class="entry">
+	<td>Ortolani, S. and Schnack, D.D.</td>
+	<td>Magnetohydrodynamics of Plasma Relaxation</td>
+	<td>1993</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Ovsyannikov2000" class="entry">
+	<td>Ovsyannikov, A.A. and Zhukov, M.F.</td>
+	<td>Plasma Diagnostics</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Palacios2006" class="entry">
+	<td>Palacios, A.F.</td>
+	<td>The Hamilton-Type Principle in Fluid Dynamics: Fundamentals and Applications to MHD, Thermodynamics, and Astrophysics</td>
+	<td>2006</td>
+	<td>, pp. 425&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=99D8EF42B5CBAA286418648CCA36B3FF">URL</a>&nbsp;</td>
+</tr>
+<tr id="PanelonPlasma1995" class="entry">
+	<td>PanelonPlasma</td>
+	<td>Plasma Science: From Fundamental Research to Technological Applications</td>
+	<td>1995</td>
+	<td>, pp. 199&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Papas1988" class="entry">
+	<td>Papas, C.H.</td>
+	<td>Theory of electromagnetic wave propagation</td>
+	<td>1988</td>
+	<td>, pp. 270&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=B53D5633CF078696A294BB3BCF4CD75A">URL</a>&nbsp;</td>
+</tr>
+<tr id="Parker1989" class="entry">
+	<td>Parker, T.S. and Chua, L.O.</td>
+	<td>Practical Numerical Algorithms for Chaotic Systems</td>
+	<td>1989</td>
+	<td>, pp. 161&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Parks2003" class="entry">
+	<td>Parks, G.K.</td>
+	<td>Physics Of Space Plasmas: An Introduction</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Passot2005" class="entry">
+	<td>Passot, T., Sulem, C. and Sulem, P.L.</td>
+	<td>Topics in Kinetic Theory</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Passot2000" class="entry">
+	<td>Passot, T. and Sulem, P.-L.</td>
+	<td>Nonlinear MHD Waves and Turbulence</td>
+	<td>2000</td>
+	<td>, pp. 394&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=98B82C7CA489367A3C18FAD101AB9C66">URL</a>&nbsp;</td>
+</tr>
+<tr id="Pecseli2013" class="entry">
+	<td>Pecseli, H.L.</td>
+	<td>Waves and oscillations in plasmas</td>
+	<td>2013</td>
+	<td>, pp. 553 p.&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=56a6b3e542b42e35ab1e4ca450f8cd56&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Peratt2015" class="entry">
+	<td>Peratt, A.L.</td>
+	<td>Physics of the plasma Universe</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=9d2d6e29b9d3476835ce3ec0a521ea8b">URL</a>&nbsp;</td>
+</tr>
+<tr id="Peratt1991" class="entry">
+	<td>Peratt, A.L.</td>
+	<td>Physics of the Plasma Universe</td>
+	<td>1991</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Pfalzner2006" class="entry">
+	<td>Pfalzner, S.</td>
+	<td>An Introduction to Inertial Confinement Fusion</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="PhysicsSurveyCommittee1986" class="entry">
+	<td>PhysicsSurveyCommittee</td>
+	<td>Plasmas and Fluids, Physics through the 1990s</td>
+	<td>1986</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Piel2010" class="entry">
+	<td>Piel, A.</td>
+	<td>Plasma Physics An Introduction to Laboratory, Space, and Fusion Plasmas</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Plasma2010Committee2010" class="entry">
+	<td>Plasma2010Committee</td>
+	<td>Plasma Science: Advancing Knowledge in the National Interest</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Pohl2009" class="entry">
+	<td>Pohl, V. and Boche, H.</td>
+	<td>Advanced Topics in System and Signal Theory: A Mathematical Approach</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=1d085c6eae428bad7d23dd3fa0b0fcb8">URL</a>&nbsp;</td>
+</tr>
+<tr id="Polyanin2011" class="entry">
+	<td>Polyanin, A. and Zaitsev, V.</td>
+	<td>Handbook of nonlinear partial differential equations</td>
+	<td>2011</td>
+	<td>, pp. 1878&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=5d3afe7caa4f030e4319ac57344706c6">URL</a>&nbsp;</td>
+</tr>
+<tr id="Priest2007" class="entry">
+	<td>Priest, E. and Forbes, T.</td>
+	<td>Magnetic Reconnection: MHD Theory and Applications</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Proctor1995" class="entry">
+	<td>Proctor, M.R.E. and Gilbert, A.D.</td>
+	<td>Lectures on Solar and Planetary Dynamos</td>
+	<td>1995</td>
+	<td>, pp. 389&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=71829E16A82120BCCA29B63794F8982B&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Proctor2008" class="entry">
+	<td>Proctor, M.R.E., Matthews, P.C. and Rucklidge, A.M.</td>
+	<td>Solar and Planetary Dynamos</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Proelss2004" class="entry">
+	<td>Prölss, G. and Bird, M.K.</td>
+	<td>Physics of the Earth's Space Environment</td>
+	<td>2004</td>
+	<td>, pp. 519&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Pustovitov2000" class="entry">
+	<td>Pustovitov, V.D.</td>
+	<td>Reviews of Plasma Physics 21</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=f45b543cbc32eed9f04bca01a4ffd9d9&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Raizer1991" class="entry">
+	<td>Raizer, Y.P.</td>
+	<td>Gas Discharge Physics</td>
+	<td>1991</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Raju2005" class="entry">
+	<td>Raju, G.G.</td>
+	<td>Gaseous Electronics: Theory and Practice</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Ranada1979" class="entry">
+	<td>Ranada, A.F.</td>
+	<td>Nonlinear Problems in Theoretical Physics</td>
+	<td>1979</td>
+	<td>, pp. 218&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=EBA4A043AE822FD1DA8FE9D47F573B33">URL</a>&nbsp;</td>
+</tr>
+<tr id="Reyes2011" class="entry">
+	<td>Reyes, V.G.</td>
+	<td>Perspectives in Magnetohydrodynamics Research</td>
+	<td>2011</td>
+	<td>, pp. 153&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=BC12B2488DA99BFF212ABAA0EA500F18">URL</a>&nbsp;</td>
+</tr>
+<tr id="Roederer2014" class="entry">
+	<td>Roederer, J.G. and Zhang, H.</td>
+	<td>Dynamics of Magnetically Trapped Particles: Foundations of the Physics of Radiation Belts and Space Plasmas</td>
+	<td>2014</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=95c6d88e35e2c35a2e88dd77dbb9dc6b">URL</a>&nbsp;</td>
+</tr>
+<tr id="Rosenbluth1994" class="entry">
+	<td>Rosenbluth, M.N.</td>
+	<td>New ideas in Tokamak confinement</td>
+	<td>1994</td>
+	<td>, pp. 483&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://books.google.com.hk/books?id=O-tNCVdrF4EC&dq=TOKAMAK&hl=zh-CN&source=gbs_navlinks_s">URL</a>&nbsp;</td>
+</tr>
+<tr id="Rosenbluth1964" class="entry">
+	<td>Rosenbluth, M.N., Thompson, W.B., Kulsrud, R., Ecker, G., Furth, H.P., Sturrock, P.A., Mercier, C., Bertotti, B. and Kruskal, M.</td>
+	<td>Advansed plasma theory, Proceedings of the International School of Physics. Enrico Fermico. Volume XXV, 25</td>
+	<td>1964</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Rubenchik1991" class="entry">
+	<td>Rubenchik, A.</td>
+	<td>Handbook of Plasma Physics [Vol 3 - Physics of Laser Plasma]</td>
+	<td>1991</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=db8a54e2d7434c22732b5b06a7f86831">URL</a>&nbsp;</td>
+</tr>
+<tr id="Rudiger2004" class="entry">
+	<td>Rudiger, G. and Hollerbach, R.</td>
+	<td>The Magnetic Universe: Geophysical and Astrophysical Dynamo Theory</td>
+	<td>2004</td>
+	<td>, pp. 338&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Russian" class="entry">
+	<td>Russian</td>
+	<td>Reviews of Plasma Physics, v1-v24</td>
+	<td></td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.co.uk/s/ref=nb_sb_noss?url=search-alias%3Dstripbooks&field-keywords=Reviews+of+Plasma+Physics&x=0&y=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Russian1965" class="entry">
+	<td>Russian</td>
+	<td>Reviews of Plasma Physics, Contents of vol 1-8, 10-13, 15-22</td>
+	<td>1965</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Rye1970" class="entry">
+	<td>Rye, B.J. and Taylor, J.C.</td>
+	<td>Physics of hot plasmas: Scottish Universities' Summer School, 1968</td>
+	<td>1970</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://link.springer.com/book/10.1007/978-1-4615-8639-5/page/1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sachdev2009" class="entry">
+	<td>Sachdev, P. and Rao, C.S.</td>
+	<td>Large time asymptotics for solutions of nonlinear partial differential equations</td>
+	<td>2009</td>
+	<td>, pp. 240&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=EFC3251E2E9486621DD3FA9F4651A645">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sadiku2000" class="entry">
+	<td>Sadiku, M.N.</td>
+	<td>Numerical techniques in electromagnetics</td>
+	<td>2000</td>
+	<td>, pp. 750&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8EE23E719C73465DA8108A250CB25DBD">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sadiku2009" class="entry">
+	<td>Sadiku, M.N.O.</td>
+	<td>Monte Carlo Methods for Electromagnetics</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Sadowski1979" class="entry">
+	<td>Sadowski W., C.B.</td>
+	<td>Proceedings of the Finite Beta Theory Workshop, September 1977, Varenna, Italy / edited by B. Coppi, W. Sadowski.</td>
+	<td>1979</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://babel.hathitrust.org/cgi/pt?id=mdp.39015017192736;view=1up;seq=9">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sagan1961" class="entry">
+	<td>Sagan, H.</td>
+	<td>Boundary and Eigenvalue Problems in Mathematical Physics</td>
+	<td>1961</td>
+	<td>, pp. 397&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Sagaut2008" class="entry">
+	<td>Sagaut, P. and Cambon, C.</td>
+	<td>Homogeneous Turbulence Dynamics</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Sagdeev1995" class="entry">
+	<td>Sagdeev, R.Z. and Eisenhower, S.</td>
+	<td>The making of a Soviet scientist: my adventures in nuclear fusion and space from Stalin to Star Wars</td>
+	<td>1995</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Sagdeev1969" class="entry">
+	<td>Sagdeev, R.Z. and Galeev, A.</td>
+	<td>Nonlinear plasma theory</td>
+	<td>1969</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Sagdeev1988" class="entry">
+	<td>Sagdeev, R.Z., Usikov, D.A. and Zaslavski, G.M.</td>
+	<td>Nonlinear physics: from the pendulum to turbulence and chaos</td>
+	<td>1988</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Salzmann1998" class="entry">
+	<td>Salzmann, D.</td>
+	<td>Atomic Physics in Hot Plasmas</td>
+	<td>1998</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=7EC06728B0844974CABF191B633A9E06">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sasiela2007" class="entry">
+	<td>Sasiela, R.J.</td>
+	<td>Electromagnetic Wave Propagation in Turbulence: Evaluation and Application of Mellin Transforms, (SPIE Press Monograph Vol. PM171)</td>
+	<td>2007</td>
+	<td>, pp. 357&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=081E27BD24C5F23AF979D9798C9C9F1C">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sauter2008" class="entry">
+	<td>Sauter, O., Garbet, X. and Sindoni, E.</td>
+	<td>Theory of Fusion Plasmas (AIP Conference Proceedings / Plasma Physics)</td>
+	<td>2008</td>
+	<td>, pp. 392&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Theory-Plasmas-Conference-Proceedings-Physics/dp/0735406006/ref=sr_1_1?s=books&ie=UTF8&qid=1325499347&sr=1-1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sazhin2005" class="entry">
+	<td>Sazhin, S.</td>
+	<td>Whistler-mode in a hot plasma</td>
+	<td>2005</td>
+	<td>, pp. 260&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=5A911B838537CA1CE5757480CED8E1BE">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sazhin1993" class="entry">
+	<td>Sazhin, S.</td>
+	<td>Whistler-mode Waves in a Hot Plasma</td>
+	<td>1993</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Schnack2009" class="entry">
+	<td>Schnack, D.D.</td>
+	<td>Lectures in Magnetohydrodynamics -- With an Appendix on Extended MHD</td>
+	<td>2009</td>
+	<td>, pp. 323&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8976BA99E5FAF4F95374F722B3D7F421">URL</a>&nbsp;</td>
+</tr>
+<tr id="Schulz1974" class="entry">
+	<td>Schulz, M. and Lanzerotti, L.J.</td>
+	<td>Particle Diffusion in the Radiation Belts</td>
+	<td>1974</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://link.springer.com/book/10.1007%2F978-3-642-65675-0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Schumacher2005" class="entry">
+	<td>Schumacher, U.</td>
+	<td>Plasma Physics: Confinement, Transport and Collective Effects</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=9F69D4CC739D1AAFE184F18886ACF572">URL</a>&nbsp;</td>
+</tr>
+<tr id="Schwab1988" class="entry">
+	<td>Schwab, A.J.</td>
+	<td>Field Theory Concepts -- Electromagnetic Fields. Maxwell’s Equations grad, curl, div. etc. Finite-Element Method. Finite-Difference Method. Charge Simulation Method. Monte Carlo Method</td>
+	<td>1988</td>
+	<td>, pp. 218&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.springer.com/engineering/electronics/book/978-3-642-48943-3">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sekido1985" class="entry">
+	<td>Sekido, Y. and Elliot, H.</td>
+	<td>Early History of Cosmic Ray Studies: personal reminiscences with old photographs</td>
+	<td>1985</td>
+	<td>, pp. 444&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=718107cc0583280809e5dc4af9e6c052">URL</a>&nbsp;</td>
+</tr>
+<tr id="Sentis2014" class="entry">
+	<td>Sentis, R.</td>
+	<td>Mathematical Models and Methods for Plasma Physics, Volume 1: Fluid Models</td>
+	<td>2014</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=c2c993e8ddb5bab2811bb01346dc15b2&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Seryi2016" class="entry">
+	<td>Seryi, A.</td>
+	<td>Unifying physics of accelerators, lasers and plasma</td>
+	<td>2016</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=04b19eba0cbbb6c953c18c98e894202e">URL</a>&nbsp;</td>
+</tr>
+<tr id="Shafranov2008" class="entry">
+	<td>Shafranov, V.</td>
+	<td>Reviews of Plasma Physics Volume 24</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Shafranov2003" class="entry">
+	<td>Shafranov, V.</td>
+	<td>Reviews of Plasma Physics Volume 23</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Shafranov1967" class="entry">
+	<td>Shafranov, V.D.</td>
+	<td>Reviews of Plasma Physics: Volume 3</td>
+	<td>1967</td>
+	<td>, pp. 331&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=82c5b0f5b577010e7921be4e9b45bd99&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Shafranov1960" class="entry">
+	<td>Shafranov, V.D.</td>
+	<td>Electrodynamic Waves in a Plasma</td>
+	<td>1960</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Sharma2005" class="entry">
+	<td>Sharma, A.S. and Kaw, P.</td>
+	<td>Nonequilibrium Phenomena in Plasmas</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Shats2006" class="entry">
+	<td>Shats, M. and Punzmann, H.</td>
+	<td>Turbulence And Coherent Structures in Fluids, Plasmas And Nonlinear Medium</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Shen2011" class="entry">
+	<td>Shen, J., Tang, T. and Wang, L.-L.</td>
+	<td>Spectral Methods Algorithms, Analysis and Applications</td>
+	<td>2011</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Shivamoggi1988" class="entry">
+	<td>Shivamoggi, B.K.</td>
+	<td>Introduction to Nonlinear Fluid-Plasma Waves</td>
+	<td>1988</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=14ae8edaac9fd016c2d6d024c8bf5667">URL</a>&nbsp;</td>
+</tr>
+<tr id="Shoucri2010" class="entry">
+	<td>Shoucri, M.</td>
+	<td>Eulerian Codes for the Numerical Solution of the Kinetic Equations of Plasmas</td>
+	<td>2010</td>
+	<td>, pp. 364&nbsp;</td>
+	<td>book</td>
+	<td><a href="https://www.novapublishers.com/catalog/product_info.php?products_id=13070">URL</a>&nbsp;</td>
+</tr>
+<tr id="Shu1992" class="entry">
+	<td>Shu, F.H.</td>
+	<td>The Physics of Astrophysics Volume II: Gas Dynamics</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Shu1991" class="entry">
+	<td>Shu, F.H.</td>
+	<td>The Physics of Astrophysics Volume I: Radiation</td>
+	<td>1991</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Shukla2002" class="entry">
+	<td>Shukla, P.K. and AMamun, A.</td>
+	<td>Introduction to Dusty Plasma Physics</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Shukla2008" class="entry">
+	<td>Shukla, P.K., Stenflo, L. and Eliasson, B.</td>
+	<td>New Aspects of Plasma Physics: Proceedings of the 2007 ICTP Summer College on Plasma Physics</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=53ba8ee731b2b63daa589b0d3ec2abc1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Simnett1997" class="entry">
+	<td>Simnett, G.M., Alissandrakis, C.E. and Vlahos, L.</td>
+	<td>Solar and Heliospheric Plasma Physics: Proceedings of the 8th European Meeting on Solar Physics Held at Halkidiki, near Thessaloniki, Greece, 13 - 18 May, 1996</td>
+	<td>1997</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Smirnov2015" class="entry">
+	<td>Smirnov, B.M.</td>
+	<td>Theory of Gas Discharge Plasma</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=2fef08b06ac78bdd17f9845db0966a86">URL</a>&nbsp;</td>
+</tr>
+<tr id="Smirnov2010" class="entry">
+	<td>Smirnov, B.M.</td>
+	<td>Cluster Processes in Gases and Plasmas</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Smirnov2001" class="entry">
+	<td>Smirnov, B.M. and Reiss, H.</td>
+	<td>Physics of Ionized Gases</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=2C062449037E9D67C823ADB466BF70B9">URL</a>&nbsp;</td>
+</tr>
+<tr id="Solovev1995" class="entry">
+	<td>Solovev, L.S. and Shafranov, V.D.</td>
+	<td>Reviews of Plasma Physics: Volume 5</td>
+	<td>1995</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=2b9cf62c1a02150d4ba8c6c6d4cebd9e&open=0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Somov2006a" class="entry">
+	<td>Somov, B.V.</td>
+	<td>Plasma Astrophysics, Part I: Fundamentals and Practice</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Somov2006b" class="entry">
+	<td>Somov, B.V.</td>
+	<td>Plasma Astrophysics, Part II: Reconnection and Flares</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Southwood2015" class="entry">
+	<td>Southwood, D., FRS, W.H.S.C. and Mitton, S.</td>
+	<td>Magnetospheric Plasma Physics: The Impact of Jim Dungey’s Research</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=f7be8a6e0b683bc84a57d61e0c9a411b">URL</a>&nbsp;</td>
+</tr>
+<tr id="Spitzer1998" class="entry">
+	<td>Spitzer, L.</td>
+	<td>Physical Processes in the Interstellar Medium</td>
+	<td>1998</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Spitzer1978" class="entry">
+	<td>Spitzer, L.</td>
+	<td>Physical Processes in the Interstellar Medium</td>
+	<td>1978</td>
+	<td>, pp. 318&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Spitzer1956" class="entry">
+	<td>Spitzer, L.</td>
+	<td>Physics of Fully Ionized Gases</td>
+	<td>1956</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Stacey2010" class="entry">
+	<td>Stacey, W.M.</td>
+	<td>Fusion, An Introduction to the Physics and Technology of Magnetic Confinement Fusion</td>
+	<td>2010</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Stacey2005" class="entry">
+	<td>Stacey, W.M.</td>
+	<td>Fusion Plasma Physics</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Stacey1984" class="entry">
+	<td>Stacey, W.M.</td>
+	<td>Fusion and Technology, An Introduction to the Physics and Technology of Magnetic Confinement Fusion</td>
+	<td>1984</td>
+	<td>, pp. 280&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Stacey1981" class="entry">
+	<td>Stacey, W.M.</td>
+	<td>Fusion Plasma Analysis</td>
+	<td>1981</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Stangeby2000" class="entry">
+	<td>Stangeby, P.C.</td>
+	<td>The Plasma Boundary of Magnetic Fusion Devices</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Stefan1992" class="entry">
+	<td>Stefan, V.A.</td>
+	<td>Nonlinear and relativistic effects in plasmas</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://books.google.com.hk/books?id=Ofo7Fe2pTpIC&source=gbs_similarbooks">URL</a>&nbsp;</td>
+</tr>
+<tr id="Stevens1995" class="entry">
+	<td>Stevens, C.F.</td>
+	<td>The Six Core Theories of Modern Physics</td>
+	<td>1995</td>
+	<td>, pp. 230&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Stewart2001" class="entry">
+	<td>Stewart, G.W.</td>
+	<td>Matrix Algorithms: Volume II: Eigensystems</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://epubs.siam.org/doi/book/10.1137/1.9780898718058">URL</a>&nbsp;</td>
+</tr>
+<tr id="Stix1992" class="entry">
+	<td>Stix, T.</td>
+	<td>Waves in Plasmas</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Sturrock1994" class="entry">
+	<td>Sturrock, P.A.</td>
+	<td>Plasma Physics: An Introduction to the Theory of Astrophysical, Geophysical and Laboratory Plasmas</td>
+	<td>1994</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Sulem1999" class="entry">
+	<td>Sulem, C. and Sulem, P.-L.</td>
+	<td>The Nonlinear Schrödinger Equation Self-Focusing and Wave Collapse</td>
+	<td>1999</td>
+	<td>, pp. 369&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Swanson2003" class="entry">
+	<td>Swanson, D.G.</td>
+	<td>Plasma Waves</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Swanson2008" class="entry">
+	<td>Swanson, D.G.</td>
+	<td>Plasma Kinetic Theory</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Tabor1989" class="entry">
+	<td>Tabor, M.</td>
+	<td>Chaos and Integrability in Nonlinear Dynamics: An Introduction</td>
+	<td>1989</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=837671041B92BA40089EE66788AFF6B2">URL</a>&nbsp;</td>
+</tr>
+<tr id="Taflove2005" class="entry">
+	<td>Taflove, A. and Hagness, S.C.</td>
+	<td>Computational Electrodynamics: The Finite-Difference Time-Domain Method, Third Edition</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=2BC371937D87FADF586C3E3F363FF465">URL</a>&nbsp;</td>
+</tr>
+<tr id="Tajima2004" class="entry">
+	<td>Tajima, T.</td>
+	<td>Computational Plasma Physcis, with Application to Fusion and Astrophysics</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Tajima2002" class="entry">
+	<td>Tajima, T.</td>
+	<td>Plasma Astrophysics</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Tajima1994" class="entry">
+	<td>Tajima, T. and Okamoto, M.</td>
+	<td>Physics of high energy particles in toroidal systems : Irvine, CA 1993</td>
+	<td>1994</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=4ce783471854330ed19827daa56bb3e5">URL</a>&nbsp;</td>
+</tr>
+<tr id="Tang2015" class="entry">
+	<td>Tang Haibin; York, T.M.</td>
+	<td>Introduction to Plasmas and Plasma Dynamics. With Reviews of Applications in Space Propulsion, Magnetic Fusion and Space Physics</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=BCABB66F33E800514075BC36CB3F38ED">URL</a>&nbsp;</td>
+</tr>
+<tr id="Teller1981" class="entry">
+	<td>Teller, E.</td>
+	<td>Fusion. Magnetic Confinement, Part A</td>
+	<td>1981</td>
+	<td>, pp. 491&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=9f360edf4a74749cbf6688f2ca5a4b62">URL</a>&nbsp;</td>
+</tr>
+<tr id="Teller1981a" class="entry">
+	<td>Teller, E.</td>
+	<td>Fusion. Magnetic Confinement, Part B</td>
+	<td>1981</td>
+	<td>, pp. 528&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=cb518b4b635cb3526cce65919f172077">URL</a>&nbsp;</td>
+</tr>
+<tr id="Thompson1982" class="entry">
+	<td>Thompson, J.</td>
+	<td>Numerical Grid Generation</td>
+	<td>1982</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Toral2014" class="entry">
+	<td>Toral, R. and Colet, P.</td>
+	<td>Stochastic Numerical Methods: An Introduction for Students and Scientists</td>
+	<td>2014</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8b888dc86d8e1bcbad14b6b32db7393d">URL</a>&nbsp;</td>
+</tr>
+<tr id="Toro2009" class="entry">
+	<td>Toro, E.F.</td>
+	<td>Riemann Solvers and Numerical Methods for Fluid Dynamics</td>
+	<td>2009</td>
+	<td>, pp. 738&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=9BC31E8C755F2ABD73ED8B1D2C1D9B8E">URL</a>&nbsp;</td>
+</tr>
+<tr id="Toscani1991" class="entry">
+	<td>Toscani, G., Boffi, V. and Rionero, S.</td>
+	<td>Mathematical Aspects of Fluid and Plasma Dynamics: Proceedings of an International Workshop held in Salice Terme, Italy, 26-30 September 1988</td>
+	<td>1991</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Tracy2014" class="entry">
+	<td>Tracy, E.R., Brizard, A.J., Richardson, A. and Kaufman, A.</td>
+	<td>Ray Tracing and Beyond: Phase Space Methods in Plasma Wave Theory</td>
+	<td>2014</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=725ba0aae54bb4bfa670e6731561ec3a">URL</a>&nbsp;</td>
+</tr>
+<tr id="Trakhtengerts2008" class="entry">
+	<td>Trakhtengerts, V.Y. and Rycroft, M.J.</td>
+	<td>Whistler and Alfven Mode Cyclotron Masers in Space</td>
+	<td>2008</td>
+	<td>, pp. 368&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=BE852F0371DDC4B470F1D9A5BAA1AE62">URL</a>&nbsp;</td>
+</tr>
+<tr id="Trefethen2001" class="entry">
+	<td>Trefethen, L.N.</td>
+	<td>Spectral Methods in Matlab</td>
+	<td>2001</td>
+	<td>, pp. 181&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=4D166BDFAEFA6563207F5635BA20293D">URL</a>&nbsp;</td>
+</tr>
+<tr id="Treumann1997" class="entry">
+	<td>Treumann, R.A. and Baumjohann, W.</td>
+	<td>Advanced Space Plasma Physics</td>
+	<td>1997</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Trieste1965" class="entry">
+	<td>Trieste</td>
+	<td>Plasma Physics, The opening of the new International Center for Theoretical Physics on October 5, 1964, in Trieste, Italy</td>
+	<td>1965</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Trottenberg2000" class="entry">
+	<td>Trottenberg, U., Oosterlee, C.W. and Schuller, A.</td>
+	<td>Multigrid</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Trubnikov1965" class="entry">
+	<td>Trubnikov, B.A.</td>
+	<td>Particle interactions in a fully ionized plasma</td>
+	<td>1965</td>
+	<td><br/>Vol. 1&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Tsytovich1977" class="entry">
+	<td>Tsytovich, V.N.</td>
+	<td>Theory of Turbulent Plasma</td>
+	<td>1977</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Tsytovich1970" class="entry">
+	<td>Tsytovich, V.N.</td>
+	<td>Nonlinear Effects in Plasma</td>
+	<td>1970</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=9366bd4a429cc39cb8886e3a898f6bfa">URL</a>&nbsp;</td>
+</tr>
+<tr id="Tsytovich2008" class="entry">
+	<td>Tsytovich, V.N., Morfill, G.E., Vladimirov, S.V. and Thomas, H.M.</td>
+	<td>Elementary Physics of Complex Plasmas</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Usui2007" class="entry">
+	<td>Usui, H. and Omura, Y.</td>
+	<td>Advanced methods for space simulations</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=30d5697c3ef6f19a5a5d1294b2d06856">URL</a>&nbsp;</td>
+</tr>
+<tr id="Vedenov1968" class="entry">
+	<td>Vedenov, A.A.</td>
+	<td>Theory of Turbulent Plasma</td>
+	<td>1968</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Vedenov1965" class="entry">
+	<td>Vedenov, A.A.</td>
+	<td>Thermodynamics of a plasma</td>
+	<td>1965</td>
+	<td><br/>Vol. Reviews of Plasma Physics, Vol. 1, p 312-326&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Versteeg1995" class="entry">
+	<td>Versteeg, H. and Malalasekra, W.</td>
+	<td>An Introduction to Computational Fluid Dynamics The Finite Volume Method Approach</td>
+	<td>1995</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Vladimirov2010" class="entry">
+	<td>Vladimirov, S.V., Tsytovich, V., Popel, S. and Khakimov, F.</td>
+	<td>Modulational interactions in plasmas</td>
+	<td>2010</td>
+	<td>, pp. 271&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=2D0DBABFB20132E85E14DFE4D0E5C19B">URL</a>&nbsp;</td>
+</tr>
+<tr id="Vlahos2009" class="entry">
+	<td>Vlahos, L. and Cargill, P.</td>
+	<td>Turbulence in Space Plasmas</td>
+	<td>2009</td>
+	<td>, pp. 337&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.springer.com/astronomy/extraterrestrial+physics,+space+sciences/book/978-3-642-00209-0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Vogt2007" class="entry">
+	<td>Vogt, R.</td>
+	<td>Ultrarelativistic heavy-ion collisions</td>
+	<td>2007</td>
+	<td>, pp. 488&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=cae361ee106f73d15a8e623227eb1cb0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Wakatani1998" class="entry">
+	<td>Wakatani, M.</td>
+	<td>Stellarator and Heliotron Devices</td>
+	<td>1998</td>
+	<td>, pp. 464&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.amazon.com/Stellarator-Heliotron-Devices-International-Monographs/dp/0195078314">URL</a>&nbsp;</td>
+</tr>
+<tr id="Waltz1986" class="entry">
+	<td>Waltz, R.E.</td>
+	<td>Lecture Series on Turbulent Transport in Tokamaks</td>
+	<td>1986</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://adsabs.harvard.edu/abs/1987naja.rept.....W">URL</a>&nbsp;</td>
+</tr>
+<tr id="Weiland2012" class="entry">
+	<td>Weiland, J.</td>
+	<td>Stability and Transport in Magnetic Confinement Systems</td>
+	<td>2012</td>
+	<td>, pp. 227&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=8d93a0aecae29c39091acb196ece16f3">URL</a>&nbsp;</td>
+</tr>
+<tr id="Weiland2000" class="entry">
+	<td>Weiland, J.</td>
+	<td>Collective Modes in Inhomogeneous Plasma: Kinetic and Advanced Fluid Theory</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Weiland1977" class="entry">
+	<td>Weiland, J. and Wilhelmsson, H.</td>
+	<td>Coherent Interaction of Waves in Plasmas</td>
+	<td>1977</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Wendt2009" class="entry">
+	<td>Wendt, J.F.</td>
+	<td>Computational Fluid Dynamics: An Introduction</td>
+	<td>2009</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Wesson2011" class="entry">
+	<td>Wesson, J.</td>
+	<td>Tokamaks</td>
+	<td>2011</td>
+	<td>, pp. 800&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://books.google.com.hk/books?id=BH9vx-iDI74C&dq=tokamak&hl=zh-CN&source=gbs_navlinks_s">URL</a>&nbsp;</td>
+</tr>
+<tr id="Wesson2004" class="entry">
+	<td>Wesson, J.</td>
+	<td>Tokamaks</td>
+	<td>2004</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="White2005" class="entry">
+	<td>White, R.B.</td>
+	<td>Asymptotic Analysis of Differential Equations</td>
+	<td>2005</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="White2001" class="entry">
+	<td>White, R.B.</td>
+	<td>The Theory of Toroidally Confined Plasmas</td>
+	<td>2001</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="White1989" class="entry">
+	<td>White, R.B.</td>
+	<td>Theory of Tokamak Plasmas</td>
+	<td>1989</td>
+	<td>, pp. 367&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=49ee8a1cdd03b2e45dd5b98bef7976b9">URL</a>&nbsp;</td>
+</tr>
+<tr id="Whitham1974" class="entry">
+	<td>Whitham, G.B.</td>
+	<td>Linear and Nonlinear Waves</td>
+	<td>1974</td>
+	<td>, pp. 656&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=2C9D426EDAABDB2AD078AD8E1005C070">URL</a>&nbsp;</td>
+</tr>
+<tr id="Wielebinski2005" class="entry">
+	<td>Wielebinski, R. and Beck, R.</td>
+	<td>Cosmic Magnetic Fields</td>
+	<td>2005</td>
+	<td>, pp. 559&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Wilhelmsson2000" class="entry">
+	<td>Wilhelmsson, H.</td>
+	<td>Fusion and the cosmos: a fabulous voyage through the universe</td>
+	<td>2000</td>
+	<td>, pp. 353&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Wilhelmsson1999" class="entry">
+	<td>Wilhelmsson, H.</td>
+	<td>Fusion: A Voyage Through the Plasma Universe Plasma Physics Series</td>
+	<td>1999</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Wilhelmsson2000a" class="entry">
+	<td>Wilhelmsson, H. and Lazzaro, E.</td>
+	<td>Reaction-Diffusion Problems in the Physics of Hot Plasmas</td>
+	<td>2000</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=1244977DE3A7D89C93E16CF283F6FDB3">URL</a>&nbsp;</td>
+</tr>
+<tr id="Williams2003" class="entry">
+	<td>Williams, J.M.</td>
+	<td>Style: Toward Clarity and Grace (Chicago Guides to Writing, Editing, and Publishing)</td>
+	<td>2003</td>
+	<td>, pp. 208&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=d7f574fc9b8241ca3549f532f9f25f5b">URL</a>&nbsp;</td>
+</tr>
+<tr id="Williams1971" class="entry">
+	<td>Williams, M.</td>
+	<td>Mathematical Methods in Particle Transport Theory</td>
+	<td>1971</td>
+	<td>, pp. 220&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=9AE8FFF0B8A37E85C6D95C52ECA2E44F">URL</a>&nbsp;</td>
+</tr>
+<tr id="Wilson2003" class="entry">
+	<td>Wilson, J.R. and Mathews, G.J.</td>
+	<td>Relativistic Numerical Hydrodynamics</td>
+	<td>2003</td>
+	<td>, pp. 233&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=BB626E994298B09981CCD274D6406341">URL</a>&nbsp;</td>
+</tr>
+<tr id="Wolfgang2004" class="entry">
+	<td>Wolfgang, K.</td>
+	<td>Astrophysics: A New Approach</td>
+	<td>2004</td>
+	<td>, pp. 226&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Wong2015" class="entry">
+	<td>Wong, C.S. and Mongkolnavin, R.</td>
+	<td>Elements of Plasma Technology</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=faf98fdf64c567305cb2110eec45d327">URL</a>&nbsp;</td>
+</tr>
+<tr id="Woods2006" class="entry">
+	<td>Woods, L.C.</td>
+	<td>Theory of Tokamak Transport: New Aspects for Nuclear Fusion Reactor Design</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Woods2004" class="entry">
+	<td>Woods, L.C.</td>
+	<td>Physics of Plasmas</td>
+	<td>2004</td>
+	<td>, pp. 226&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=DFC1028CF9421BD5C2856B0A85C702E1">URL</a>&nbsp;</td>
+</tr>
+<tr id="Wu1966" class="entry">
+	<td>Wu, T.y.</td>
+	<td>Kinetic equations of gases and plasmas</td>
+	<td>1966</td>
+	<td>, pp. 151&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=B0470010CBB21EFAAA0498CF038837B3">URL</a>&nbsp;</td>
+</tr>
+<tr id="Yang2005" class="entry">
+	<td>Yang, W.Y., Cao, W., Chung, T.-S. and Morris, J.</td>
+	<td>Applied Numerical Methods Using MATLAB</td>
+	<td>2005</td>
+	<td>, pp. 526&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=7468BB31C38C75DD97EB04177470CAB0">URL</a>&nbsp;</td>
+</tr>
+<tr id="Yoshizawa2002" class="entry">
+	<td>Yoshizawa, A., Itoh, S. and Itoh, K.</td>
+	<td>Plasma and Fluid Turbulence: Theory and Modelling</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Young1987" class="entry">
+	<td>Young, S.K. and Woodford, W.Z.</td>
+	<td>The Physics of Phase Space Nonlinear Dynamics and Chaos Geometric Quantization, and Wigner Function</td>
+	<td>1987</td>
+	<td>, pp. 457&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=5882C5F2CD32551AF9FBC1446922FEEE">URL</a>&nbsp;</td>
+</tr>
+<tr id="Zheng2015" class="entry">
+	<td>Zheng, L.</td>
+	<td>Advanced Tokamak Stability Theory</td>
+	<td>2015</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://dx.doi.org/10.1088/978-1-6270-5423-2">DOI</a> <a href="http://dx.doi.org/10.1088/978-1-6270-5423-2">URL</a>&nbsp;</td>
+</tr>
+<tr id="Zheng2014" class="entry">
+	<td>Zheng, L.</td>
+	<td>Advanced Tokamak Stability Theory</td>
+	<td>2014</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Zheng2012" class="entry">
+	<td>Zheng, L.</td>
+	<td>Topics in Magnetohydrodynamics</td>
+	<td>2012</td>
+	<td>, pp. 210&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.intechopen.com/books/topics-in-magnetohydrodynamics">URL</a>&nbsp;</td>
+</tr>
+<tr id="Zohm2014" class="entry">
+	<td>Zohm, H.</td>
+	<td>Magnetohydrodynamic Stability of Tokamaks</td>
+	<td>2014</td>
+	<td>, pp. 240&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://gen.lib.rus.ec/book/index.php?md5=db7e7c1e91f3f5f642159860d70ce39b">URL</a>&nbsp;</td>
+</tr>
+<tr id="中国科学技术情报研究所1977" class="entry">
+	<td>中国科学技术情报研究所</td>
+	<td>出国参观考察报告-日本等离子体和受控热核反应研究情况</td>
+	<td>1977</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="傅竹风1995" class="entry">
+	<td>傅竹风 and 胡友秋</td>
+	<td>空间等离子体数值模拟</td>
+	<td>1995</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="克拉尔1983" class="entry">
+	<td>克拉尔 and 特里维尔皮斯</td>
+	<td>等离子体物理学原理</td>
+	<td>1983</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="冯康2003" class="entry">
+	<td>冯康</td>
+	<td>哈密尔顿系统的辛几何算法</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="冯康1978" class="entry">
+	<td>冯康</td>
+	<td>数值计算方法</td>
+	<td>1978</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="博伊德1977" class="entry">
+	<td>博伊德 and 桑德森</td>
+	<td>等离子体动力学</td>
+	<td>1977</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="卡多姆采夫1983" class="entry">
+	<td>卡多姆采夫</td>
+	<td>等离子体中的集体现象</td>
+	<td>1983</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="卡普兰1982" class="entry">
+	<td>卡普兰 and 齐托维奇</td>
+	<td>等离子体天体物理</td>
+	<td>1982</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="吴其芬2007" class="entry">
+	<td>吴其芬 and 李桦</td>
+	<td>磁流体力学</td>
+	<td>2007</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="哈瑟加瓦1981" class="entry">
+	<td>哈瑟加瓦</td>
+	<td>等离子体不稳定性和非线性效应</td>
+	<td>1981</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="夫兰克1965" class="entry">
+	<td>夫兰克</td>
+	<td>等离子体-物质第四态</td>
+	<td>1965</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="姚国昌1984" class="entry">
+	<td>姚国昌 and 周美和</td>
+	<td>英汉等离子体物理学与受控核聚变词汇</td>
+	<td>1984</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="孙杏凡1982" class="entry">
+	<td>孙杏凡</td>
+	<td>等离子体及其应用（高等学校物理学小丛书）</td>
+	<td>1982</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="宫本健郞1981" class="entry">
+	<td>宫本健郞</td>
+	<td>热核聚变等离子体物理学</td>
+	<td>1981</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="宫野1987" class="entry">
+	<td>宫野</td>
+	<td>计算物理</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="布克1985" class="entry">
+	<td>布克</td>
+	<td>冷等离子体波</td>
+	<td>1985</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="康寿万1980" class="entry">
+	<td>康寿万 and 陈雁萍</td>
+	<td>等离子体物理常数和公式手册</td>
+	<td>1980</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="张林波2006" class="entry">
+	<td>张林波, 迟学斌, 莫则尧 and 李若</td>
+	<td>并行计算导论</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="徐家鸾1981" class="entry">
+	<td>徐家鸾 and 金尚宪</td>
+	<td>等离子体物理学</td>
+	<td>1981</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="戈兰特1983" class="entry">
+	<td>戈兰特</td>
+	<td>等离子体物理基础</td>
+	<td>1983</td>
+	<td>, pp. 480&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="斯必泽1988" class="entry">
+	<td>斯必泽</td>
+	<td>星际介质物理学</td>
+	<td>1988</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="方成2008" class="entry">
+	<td>方成, 丁明德 and 陈鹏飞</td>
+	<td>太阳活动区物理</td>
+	<td>2008</td>
+	<td>, pp. 376&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="朱士尧1992" class="entry">
+	<td>朱士尧</td>
+	<td>核聚变原理</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="朱士尧1983" class="entry">
+	<td>朱士尧</td>
+	<td>等离子体物理基础</td>
+	<td>1983</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="李定2006" class="entry">
+	<td>李定, 陈银华, 马锦秀 and 杨维纮</td>
+	<td>等离子体物理学</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="李晓卿1987" class="entry">
+	<td>李晓卿</td>
+	<td>湍动等离子体物理</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="李银安1992" class="entry">
+	<td>李银安</td>
+	<td>科学家谈物理：受控热核聚变</td>
+	<td>1992</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="林哈脱1962" class="entry">
+	<td>林哈脱</td>
+	<td>等离子体物理学</td>
+	<td>1962</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="比肖普1960" class="entry">
+	<td>比肖普</td>
+	<td>雪伍德方案 美国在控制聚变方面的工作规划</td>
+	<td>1960</td>
+	<td>, pp. 160&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://book.duxiu.com/bookDetail.jsp?dxNumber=000000831161&d=11EFF7B9717BFBE7C809292F36CFE84A&fenlei=181407&sw=%D1%A9%CE%E9%B5%C2">URL</a>&nbsp;</td>
+</tr>
+<tr id="泰勒1988" class="entry">
+	<td>爱德华·泰勒</td>
+	<td>聚变 第1卷 磁约束 下</td>
+	<td>1988</td>
+	<td>, pp. 353&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://book.duxiu.com/bookDetail.jsp?dxNumber=000004038381&d=14895E03B18036D04B426A3FE5732939&fenlei=181407&sw=%BE%DB%B1%E4">URL</a>&nbsp;</td>
+</tr>
+<tr id="泰勒1987" class="entry">
+	<td>爱德华·泰勒</td>
+	<td>聚变 第1卷 磁约束 上</td>
+	<td>1987</td>
+	<td>, pp. 324&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://book.duxiu.com/bookDetail.jsp?dxNumber=000001036645&d=04C932E16940FEF88387938A50C893B6&fenlei=181407&sw=%BE%DB%B1%E4">URL</a>&nbsp;</td>
+</tr>
+<tr id="王水1999" class="entry">
+	<td>王水 and 李罗权</td>
+	<td>磁场重联</td>
+	<td>1999</td>
+	<td>, pp. 575&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="王淦昌1995" class="entry">
+	<td>王淦昌</td>
+	<td>惯性约束核聚变</td>
+	<td>1995</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="王闽1993" class="entry">
+	<td>王闽</td>
+	<td>等离子体物理及其计算机模拟</td>
+	<td>1993</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="石秉仁1999" class="entry">
+	<td>石秉仁</td>
+	<td>磁约束聚变：原理与实践</td>
+	<td>1999</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="胡希伟2006" class="entry">
+	<td>胡希伟</td>
+	<td>等离子体理论基础</td>
+	<td>2006</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="胡文瑞1987" class="entry">
+	<td>胡文瑞</td>
+	<td>宇宙磁流体力学</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="苏联科学院原子能研究所1962" class="entry">
+	<td>苏联科学院原子能研究所</td>
+	<td>等离子体物理学与受控热核反应的问题-第2卷</td>
+	<td>1962</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="苏联科学院原子能研究所1962a" class="entry">
+	<td>苏联科学院原子能研究所</td>
+	<td>等离子体物理学与受控热核反应的问题-第3卷</td>
+	<td>1962</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="苏联科学院原子能研究所1960" class="entry">
+	<td>苏联科学院原子能研究所</td>
+	<td>等离子体物理学与受控热核反应的问题-第1卷</td>
+	<td>1960</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="蒋伯诚1989" class="entry">
+	<td>蒋伯诚, 周振中 and 常谦顺</td>
+	<td>计算物理中的谱方法——FFT及其应用</td>
+	<td>1989</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="蔡诗东1985" class="entry">
+	<td>蔡诗东, 夏蒙棼, 李银安, 周汝玲, 姚国昌 and 周美和</td>
+	<td>物理学词典——等离子体物理学分册</td>
+	<td>1985</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="袁敬闳1990" class="entry">
+	<td>袁敬闳 and 莫怀德</td>
+	<td>等离子体中的波</td>
+	<td>1990</td>
+	<td>, pp. 297&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="许敖敖1987" class="entry">
+	<td>许敖敖 and 唐玉华</td>
+	<td>宇宙电动力学导论</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="贝克1965" class="entry">
+	<td>贝克</td>
+	<td>空间电荷波与慢电磁波</td>
+	<td>1965</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="贝克菲1981" class="entry">
+	<td>贝克菲</td>
+	<td>激光等离子体原理</td>
+	<td>1981</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="贝特曼1982" class="entry">
+	<td>贝特曼</td>
+	<td>磁流体力学不稳定性</td>
+	<td>1982</td>
+	<td>, pp. 306&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="过增元1986" class="entry">
+	<td>过增元 and 赵文华</td>
+	<td>电弧与热等离子体</td>
+	<td>1986</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="邱励俭2008" class="entry">
+	<td>邱励俭</td>
+	<td>聚变能及其应用</td>
+	<td>2008</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="邵福球2002" class="entry">
+	<td>邵福球</td>
+	<td>等离子体粒子模拟</td>
+	<td>2002</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="金兹堡1965" class="entry">
+	<td>金兹堡</td>
+	<td>电磁波在等离子体中的传播</td>
+	<td>1965</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="阿尔文1987" class="entry">
+	<td>阿尔文</td>
+	<td>宇宙等离子体</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="阿尔齐莫维奇1981" class="entry">
+	<td>阿尔齐莫维奇</td>
+	<td>封闭的等离子体位形</td>
+	<td>1981</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="陆全康1991" class="entry">
+	<td>陆全康 and 吴京生</td>
+	<td>电子回旋激射不稳定性——一种射电机制</td>
+	<td>1991</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="陆全康1997" class="entry">
+	<td>陆全康 and 蔡诗东</td>
+	<td>关联统计动力学</td>
+	<td>1997</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="陈银华2003" class="entry">
+	<td>陈银华</td>
+	<td>非线性等离子体物理导论（第三章）</td>
+	<td>2003</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="马腾才1988" class="entry">
+	<td>马腾才, 胡希伟 and 陈银华</td>
+	<td>等离子物理原理</td>
+	<td>1988</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://ishare.iask.sina.com.cn/f/18392272.html">URL</a>&nbsp;</td>
+</tr>
+<tr id="Angermann2011" class="entry">
+	<td></td>
+	<td>Numerical Simulations - Applications, Examples and Theory</td>
+	<td>2011</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="http://www.intechopen.com/books/show/title/numerical-simulations-applications-examples-and-theory">URL</a>&nbsp;</td>
+</tr>
+<tr id="Rosenbluth1984" class="entry">
+	<td></td>
+	<td>Handbook of Plasma Physics, vol 1, 2</td>
+	<td>1984</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td>&nbsp;</td>
+</tr>
+<tr id="Sitenko1987" class="entry">
+	<td></td>
+	<td>Proceedings of the Invited Papers for International Conference on Plasma Physics</td>
+	<td>1987</td>
+	<td>&nbsp;</td>
+	<td>book</td>
+	<td><a href="https://www.amazon.com/Proceedings-Invited-International-Conference-Physics/dp/9971503875/ref=sr_1_fkmr0_4?ie=UTF8&qid=1474686103&sr=8-4-fkmr0&keywords=Proceedings+of+the+Invited+Papers+for+International+Conference+on+Plasma+Physics%2C+Kiev%2C+USSR%2C+Vol.+2%2C+World+Scientific">URL</a>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+<footer>
+ <small>Created by <a href="http://jabref.sourceforge.net">JabRef</a> on 06/04/2017.</small>
+</footer>
+
+<!-- file generated by JabRef -->
+
+</body>
+</html>
